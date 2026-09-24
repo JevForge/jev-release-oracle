@@ -29,11 +29,14 @@ npm run all
 3. Recommended checks must stay inside the allowlist in `src/schemas/enums.ts`.
 4. Rebuild and commit `dist/index.js` when the Action entrypoint changes (consumers do not run `npm install`).
 5. Prefer small PRs with tests for schema, policy, and collector changes.
+6. Do not invent features in documentation that the code does not implement.
 
 ## Pull requests
 
-Do not publish releases or Marketplace listings from a pull request.
+Use the PR template checklist. Do not publish releases or Marketplace listings from a pull request.
 
 ## Issues
 
-Never paste API keys, tokens, or secrets into issues.
+Use the bug / feature templates under `.github/ISSUE_TEMPLATE/`.
+
+**Never** paste API keys, tokens, or secrets into issues.

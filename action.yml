@@ -1,5 +1,5 @@
 name: JEV Release Oracle
-description: Evaluate release risk from commits, tests, vulns, and incidents. Jev recommends proceed, warn, hold, or review.
+description: Gate release risk from commits, tests, vulns, and incidents. Jev returns proceed, warn, hold, or review.
 author: JevForge
 branding:
   icon: activity

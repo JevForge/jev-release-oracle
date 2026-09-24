@@ -1,7 +1,7 @@
 {
   "name": "jev-release-oracle",
   "version": "0.1.0",
-  "description": "Evaluate release risk from commits, tests, vulns, and incidents. Jev recommends proceed, warn, hold, or review.",
+  "description": "Gate release risk from commits, tests, vulns, and incidents. Jev returns proceed, warn, hold, or review.",
   "private": true,
   "type": "module",
   "engines": {

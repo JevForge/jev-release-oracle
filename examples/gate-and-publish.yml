@@ -1,0 +1,50 @@
+# Gate a later job on the oracle decision. Replace the publish job with your own steps.
+# This Action never publishes releases or deploys — your workflow owns those effects.
+name: Release gate and publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Previous release ref or SHA
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      decision: ${{ steps.oracle.outputs.decision }}
+      held: ${{ steps.oracle.outputs.held }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: oracle
+        uses: JevForge/jev-release-oracle@v0
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        with:
+          environment: production
+          base_ref: ${{ inputs.base_ref }}
+          signals_path: examples/signals.json
+          metrics_path: examples/metrics.json
+          changelog_path: CHANGELOG.md
+          create_check_run: 'true'
+          review_mode: fail
+
+      - name: Show recommended checks
+        if: always()
+        run: echo '${{ steps.oracle.outputs.recommended_checks }}'
+
+  publish:
+    needs: gate
+    if: needs.gate.outputs.decision == 'proceed' || needs.gate.outputs.decision == 'warn'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Continue with your own publish or deploy steps here"

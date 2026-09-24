@@ -30,4 +30,6 @@ Unknown fields are ignored. All strings are treated as untrusted data.
 
 `rerun-failed-tests`, `security-review`, `changelog-review`, `incident-review`, `slo-review`, `manual-qa`, `canary-first`, `rollback-plan`
 
+Decision shape: [decision-contract.md](decision-contract.md).
+
 See also [`examples/signals.json`](../examples/signals.json) and [`examples/metrics.json`](../examples/metrics.json).

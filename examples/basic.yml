@@ -1,0 +1,32 @@
+# Minimal release-risk gate.
+name: Release Oracle (basic)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: oracle
+        uses: JevForge/jev-release-oracle@v0
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        with:
+          environment: production
+          signals_path: examples/signals.json
+          create_check_run: 'true'
+
+      - name: Print outputs
+        if: always()
+        run: |
+          echo "decision=${{ steps.oracle.outputs.decision }}"
+          echo "held=${{ steps.oracle.outputs.held }}"
+          echo "confidence=${{ steps.oracle.outputs.confidence }}"
+          echo "summary=${{ steps.oracle.outputs.summary }}"
