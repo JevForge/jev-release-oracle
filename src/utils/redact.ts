@@ -7,6 +7,7 @@ const SECRET_PATTERNS: RegExp[] = [
   /\bTYPESAFE_API_KEY\s*[:=]\s*\S+/gi,
   /\bJEV_CUSTOM_API_KEY\s*[:=]\s*\S+/gi,
   /\bBearer\s+[A-Za-z0-9._\-+=/]{12,}/gi,
+  /([?&](?:api[_-]?key|token|secret)=)[^&\s]+/gi,
 ];
 
 export function redactSecrets(text: string): string {

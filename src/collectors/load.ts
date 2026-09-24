@@ -10,6 +10,8 @@ import { loadFindings } from './findings.js';
 import { fetchGithubCompare, type CompareClient } from './github-compare.js';
 import { filterIncidentsByLabels, loadIncidents } from './incidents.js';
 import { loadMetrics } from './metrics.js';
+import { parseSiblingSignals } from './siblings.js';
+import { applyReleaseBaseline, parseBaselineSnapshot, type BaselineInput, type BaselineSnapshot } from './baseline.js';
 import {
   emptyChecks,
   emptyDeployments,
@@ -27,9 +29,11 @@ export interface LoadReportInput {
   signalsPath?: string;
   changelogPath?: string;
   findingsPath?: string;
+  findingsJson?: string;
   sarifPath?: string;
   incidentsPath?: string;
   metricsPath?: string;
+  metricsJson?: string;
   fetchGithubCompare?: boolean;
   fetchChecks?: boolean;
   fetchDeployments?: boolean;
@@ -39,6 +43,15 @@ export interface LoadReportInput {
   compareClient?: CompareClient | null;
   checksClient?: ChecksClient | null;
   deploymentsClient?: DeploymentsClient | null;
+  sentinelDecision?: string;
+  sentinelFindings?: string;
+  costDecision?: string;
+  costMetrics?: string;
+  baselinePath?: string;
+  baselineMode?: 'all' | 'new_only';
+  baselineSnapshot?: BaselineSnapshot;
+  baselineRef?: string | null;
+  baselineError?: string;
 }
 
 export async function loadReleaseReport(input: LoadReportInput): Promise<ReleaseRiskReport> {
@@ -79,14 +92,22 @@ export async function loadReleaseReport(input: LoadReportInput): Promise<Release
   const changelogResult = loadChangelog(input.workspace, input.changelogPath);
   errors.push(...changelogResult.errors);
 
-  const findingsResult = loadFindings(input.workspace, input.findingsPath, input.sarifPath);
+  const findingsResult = loadFindings(input.workspace, input.findingsPath, input.sarifPath, input.findingsJson);
   errors.push(...findingsResult.errors);
 
   const incidentsResult = loadIncidents(input.workspace, input.incidentsPath);
   errors.push(...incidentsResult.errors);
 
-  const metricsResult = loadMetrics(input.workspace, input.metricsPath);
+  const metricsResult = loadMetrics(input.workspace, input.metricsPath, input.metricsJson);
   errors.push(...metricsResult.errors);
+
+  const sibling = parseSiblingSignals({
+    sentinelDecision: input.sentinelDecision,
+    sentinelFindings: input.sentinelFindings,
+    costDecision: input.costDecision,
+    costMetrics: input.costMetrics,
+  });
+  errors.push(...sibling.errors);
 
   let commits = [...signals.commits];
   let prs = [...signals.prs];
@@ -170,7 +191,7 @@ export async function loadReleaseReport(input: LoadReportInput): Promise<Release
     input.incidentLabels ?? [],
   );
 
-  return buildReleaseRiskReport({
+  const report = buildReleaseRiskReport({
     target_ref: input.targetRef,
     base_ref: input.baseRef,
     environment: input.environment,
@@ -179,10 +200,34 @@ export async function loadReleaseReport(input: LoadReportInput): Promise<Release
     checks,
     deployments,
     changelog,
-    findings: [...signals.findings, ...findingsResult.findings],
+    findings: [...signals.findings, ...findingsResult.findings, ...sibling.findings],
     incidents,
-    metrics: [...signals.metrics, ...metricsResult.metrics],
+    metrics: [...signals.metrics, ...metricsResult.metrics, ...sibling.metrics],
+    upstream_decisions: sibling.decisions,
     source_errors: errors,
     breakingHint: signals.breakingChange,
   });
+
+  const baselineMode = input.baselineMode ?? 'all';
+  if (baselineMode === 'all') return report;
+
+  let baseline: BaselineInput = {
+    mode: baselineMode,
+    ref: input.baselinePath ?? input.baselineRef ?? null,
+    snapshot: input.baselineSnapshot,
+    error: input.baselineError ?? (input.baselinePath || input.baselineSnapshot ? undefined : 'baseline_mode=new_only requires a baseline'),
+  };
+  if (input.baselinePath) {
+    const text = readWorkspaceText(input.workspace, input.baselinePath);
+    if (text == null) {
+      baseline.error = `Baseline file not found: ${sanitizeText(input.baselinePath, 200)}`;
+    } else {
+      try {
+        baseline.snapshot = parseBaselineSnapshot(parseJsonOrYaml(text));
+      } catch (error) {
+        baseline.error = sanitizeText(error instanceof Error ? error.message : String(error), 500);
+      }
+    }
+  }
+  return applyReleaseBaseline(report, baseline);
 }

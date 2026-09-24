@@ -11,7 +11,15 @@ export function checkConclusion(
 }
 
 export interface CheckRunClient {
+  findExistingCheckRun?(input: { name: string; headSha: string }): Promise<{ id: number } | null>;
   createCheckRun(input: {
+    name: string;
+    headSha: string;
+    conclusion: 'success' | 'neutral' | 'failure';
+    title: string;
+    summary: string;
+  }): Promise<void>;
+  updateCheckRun?(id: number, input: {
     name: string;
     headSha: string;
     conclusion: 'success' | 'neutral' | 'failure';
@@ -32,12 +40,17 @@ export async function maybeCreateCheckRun(
   if (!headSha) return 'skipped';
   if (dryRun || !client) return 'dry-run';
 
-  await client.createCheckRun({
+  const input = {
     name: 'JEV Release Oracle',
     headSha,
     conclusion: checkConclusion(actionStatus),
     title: `${decision.decision} · floor ${decision.policy_floor}`,
     summary: renderSummaryMarkdown(decision),
-  });
+  };
+  const existing = client.findExistingCheckRun
+    ? await client.findExistingCheckRun({ name: input.name, headSha })
+    : null;
+  if (existing && client.updateCheckRun) await client.updateCheckRun(existing.id, input);
+  else await client.createCheckRun(input);
   return 'created';
 }

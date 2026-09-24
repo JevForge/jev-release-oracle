@@ -7,3 +7,18 @@ coverage/
 *.log
 .DS_Store
 .jev/local/
+
+# Local planning, review and verification artifacts
+.grill/
+.start-feature/
+.test-feature/
+.security-check/
+.pre-pr/
+
+# Test and report outputs that are not shipped by the Action
+test-results/
+playwright-report/
+.vitest/
+.nyc_output/
+junit.xml
+*.lcov

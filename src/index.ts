@@ -1,21 +1,12 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { loadReleaseReport } from './collectors/load.js';
+import { loadFileConfig, resolveOracleConfig, validateOracleConfig, type RawActionInputs } from './collectors/config.js';
+import { fetchPreviousReleaseBaseline, type ReleaseBaselineClient } from './collectors/github-baseline.js';
+import type { BaselineSnapshot } from './collectors/baseline.js';
 import type { ChecksClient } from './collectors/checks.js';
 import type { CompareClient } from './collectors/github-compare.js';
 import type { DeploymentsClient } from './collectors/deployments.js';
-import {
-  ENVIRONMENTS,
-  JEV_PROVIDERS,
-  LOW_CONFIDENCE_POLICIES,
-  REVIEW_MODES,
-  SOURCE_ERROR_POLICIES,
-  type EnvironmentName,
-  type JevProviderId,
-  type LowConfidencePolicy,
-  type ReviewMode,
-  type SourceErrorPolicy,
-} from './schemas/enums.js';
 import { formatActionMessage, writeDecisionOutputs } from './github/outputs.js';
 import { runOracle } from './run.js';
 import { safeError } from './utils/redact.js';
@@ -24,22 +15,49 @@ import type { CheckRunClient } from './github/check-run.js';
 
 const LOG = '[JEV Release Oracle]';
 
-function optionalBoolean(name: string, fallback: boolean): boolean {
-  const raw = core.getInput(name);
-  if (!raw) return fallback;
-  return raw.toLowerCase() === 'true';
-}
+const CONFIG_INPUTS = [
+  'target_ref',
+  'base_ref',
+  'signals',
+  'signals_path',
+  'changelog_path',
+  'findings_path',
+  'findings',
+  'sarif_path',
+  'incidents_path',
+  'metrics_path',
+  'metrics',
+  'baseline_path',
+  'baseline_mode',
+  'sentinel_decision',
+  'sentinel_findings',
+  'cost_decision',
+  'cost_metrics',
+  'fetch_github_compare',
+  'fetch_checks',
+  'fetch_deployments',
+  'incident_labels',
+  'environment',
+  'min_confidence',
+  'low_confidence_policy',
+  'review_mode',
+  'fail_on_warn',
+  'source_error_policy',
+  'jev_provider',
+  'jev_endpoint',
+  'jev_model',
+  'timeout_ms',
+  'max_items_to_jev',
+  'comment_on_github',
+  'create_check_run',
+  'write_report_artifact',
+  'request_reviewers',
+  'structured_logs',
+  'dry_run',
+] as const;
 
-function pickEnum<T extends string>(
-  value: string | undefined,
-  allowed: readonly T[],
-  label: string,
-  fallback: T,
-): T {
-  const raw = value?.trim();
-  if (!raw) return fallback;
-  if ((allowed as readonly string[]).includes(raw)) return raw as T;
-  throw new Error(`${LOG} Invalid ${label}: ${raw}`);
+function getActionInputs(): RawActionInputs {
+  return Object.fromEntries(CONFIG_INPUTS.map(name => [name, core.getInput(name) || undefined]));
 }
 
 function resolveApiKey(provider: string): string | undefined {
@@ -50,43 +68,20 @@ function resolveApiKey(provider: string): string | undefined {
 
 async function main(): Promise<void> {
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-  const jevProvider = pickEnum(
-    core.getInput('jev_provider') || undefined,
-    JEV_PROVIDERS,
-    'jev_provider',
-    'vercel-ai-gateway',
-  ) as JevProviderId;
-  const environment = pickEnum(
-    core.getInput('environment') || undefined,
-    ENVIRONMENTS,
-    'environment',
-    'production',
-  ) as EnvironmentName;
-  const lowConfidencePolicy = pickEnum(
-    core.getInput('low_confidence_policy') || undefined,
-    LOW_CONFIDENCE_POLICIES,
-    'low_confidence_policy',
-    'fail',
-  ) as LowConfidencePolicy;
-  const reviewMode = pickEnum(
-    core.getInput('review_mode') || undefined,
-    REVIEW_MODES,
-    'review_mode',
-    'fail',
-  ) as ReviewMode;
-  const sourceErrorPolicy = pickEnum(
-    core.getInput('source_error_policy') || undefined,
-    SOURCE_ERROR_POLICIES,
-    'source_error_policy',
-    'fail',
-  ) as SourceErrorPolicy;
+  const config = resolveOracleConfig(getActionInputs(), loadFileConfig(workspace));
+  validateOracleConfig(config);
+  const jevProvider = config.jevProvider;
+  const environment = config.environment;
+  const lowConfidencePolicy = config.lowConfidencePolicy;
+  const reviewMode = config.reviewMode;
+  const sourceErrorPolicy = config.sourceErrorPolicy;
 
   const targetRef =
-    core.getInput('target_ref').trim() ||
+    config.targetRef ||
     github.context.payload.pull_request?.head?.sha ||
     github.context.sha ||
     'HEAD';
-  const baseRef = core.getInput('base_ref').trim() || null;
+  const baseRef = config.baseRef;
   const token = core.getInput('github_token') || process.env.GITHUB_TOKEN || '';
   const octokit = token ? github.getOctokit(token) : null;
   const owner = github.context.repo.owner;
@@ -183,28 +178,75 @@ async function main(): Promise<void> {
       }
     : null;
 
-  const incidentLabels = core
-    .getInput('incident_labels')
-    .split(/[,\n]+/)
-    .map(part => part.trim())
-    .filter(Boolean);
+  const releaseBaselineClient: ReleaseBaselineClient | null = octokit
+    ? {
+        async listReleases(o, r) {
+          return (await octokit.paginate(octokit.rest.repos.listReleases, {
+            owner: o,
+            repo: r,
+            per_page: 20,
+          })).map(release => ({
+            tag_name: release.tag_name,
+            draft: release.draft,
+            prerelease: release.prerelease,
+          }));
+        },
+        async getFileAtRef(o, r, path, ref) {
+          try {
+            const response = await octokit.rest.repos.getContent({ owner: o, repo: r, path, ref });
+            if (Array.isArray(response.data) || response.data.type !== 'file' || !response.data.content) return null;
+            return response.data.content.replace(/\s+/g, '');
+          } catch (error) {
+            const status = (error as { status?: number }).status;
+            if (status === 404) return null;
+            throw error;
+          }
+        },
+      }
+    : null;
+
+  let autoBaseline: { ref: string | null; snapshot?: BaselineSnapshot; error?: string } = {
+    ref: null,
+  };
+  if (config.baselineMode === 'new_only' && !config.baselinePath) {
+    autoBaseline = releaseBaselineClient
+      ? await fetchPreviousReleaseBaseline({
+          owner,
+          repo,
+          targetRef,
+          reportPath: '.jev/release-oracle-report.json',
+          client: releaseBaselineClient,
+        })
+      : { ref: null, error: 'new_only baseline requires a GitHub token or baseline_path' };
+  }
 
   const report = await loadReleaseReport({
     workspace,
     targetRef,
     baseRef,
     environment,
-    signalsJson: core.getInput('signals') || undefined,
-    signalsPath: core.getInput('signals_path') || undefined,
-    changelogPath: core.getInput('changelog_path') || undefined,
-    findingsPath: core.getInput('findings_path') || undefined,
-    sarifPath: core.getInput('sarif_path') || undefined,
-    incidentsPath: core.getInput('incidents_path') || undefined,
-    metricsPath: core.getInput('metrics_path') || undefined,
-    fetchGithubCompare: optionalBoolean('fetch_github_compare', true),
-    fetchChecks: optionalBoolean('fetch_checks', true),
-    fetchDeployments: optionalBoolean('fetch_deployments', false),
-    incidentLabels,
+    signalsJson: config.signalsJson,
+    signalsPath: config.signalsPath,
+    changelogPath: config.changelogPath,
+    findingsPath: config.findingsPath,
+    findingsJson: config.findingsJson,
+    sarifPath: config.sarifPath,
+    incidentsPath: config.incidentsPath,
+    metricsPath: config.metricsPath,
+    metricsJson: config.metricsJson,
+    fetchGithubCompare: config.fetchGithubCompare,
+    fetchChecks: config.fetchChecks,
+    fetchDeployments: config.fetchDeployments,
+    incidentLabels: config.incidentLabels,
+    sentinelDecision: config.sentinelDecision,
+    sentinelFindings: config.sentinelFindings,
+    costDecision: config.costDecision,
+    costMetrics: config.costMetrics,
+    baselinePath: config.baselinePath,
+    baselineMode: config.baselineMode,
+    baselineSnapshot: autoBaseline.snapshot,
+    baselineRef: autoBaseline.ref,
+    baselineError: autoBaseline.error,
     owner,
     repo,
     compareClient,
@@ -212,10 +254,10 @@ async function main(): Promise<void> {
     deploymentsClient,
   });
 
-  const commentOnGithub = optionalBoolean('comment_on_github', false);
-  const createCheckRun = optionalBoolean('create_check_run', true);
-  const writeReportArtifact = optionalBoolean('write_report_artifact', false);
-  const dryRun = optionalBoolean('dry_run', false);
+  const commentOnGithub = config.commentOnGithub;
+  const createCheckRun = config.createCheckRun;
+  const writeReportArtifact = config.writeReportArtifact;
+  const dryRun = config.dryRun;
   const issueNumber = github.context.payload.pull_request?.number ?? github.context.issue?.number;
 
   const commentClient: CommentClient | null =
@@ -251,10 +293,37 @@ async function main(): Promise<void> {
 
   const checkRunClient: CheckRunClient | null = octokit
     ? {
+        async findExistingCheckRun(input) {
+          const response = await octokit.rest.checks.listForRef({
+            owner,
+            repo,
+            ref: input.headSha,
+            per_page: 100,
+          });
+          const existing = response.data.check_runs.find(
+            run => run.name === input.name && run.head_sha === input.headSha,
+          );
+          return existing ? { id: existing.id } : null;
+        },
         async createCheckRun(input) {
           await octokit.rest.checks.create({
             owner,
             repo,
+            name: input.name,
+            head_sha: input.headSha,
+            status: 'completed',
+            conclusion: input.conclusion,
+            output: {
+              title: input.title,
+              summary: input.summary,
+            },
+          });
+        },
+        async updateCheckRun(id, input) {
+          await octokit.rest.checks.update({
+            owner,
+            repo,
+            check_run_id: id,
             name: input.name,
             head_sha: input.headSha,
             status: 'completed',
@@ -285,22 +354,22 @@ async function main(): Promise<void> {
   const result = await runOracle({
     report,
     workspace,
-    minConfidence: Number(core.getInput('min_confidence') || 0.75),
+    minConfidence: config.minConfidence,
     lowConfidencePolicy,
     reviewMode,
-    failOnWarn: optionalBoolean('fail_on_warn', false),
+    failOnWarn: config.failOnWarn,
     sourceErrorPolicy,
     jevProvider,
-    jevEndpoint: core.getInput('jev_endpoint') || undefined,
-    jevModel: core.getInput('jev_model') || undefined,
-    timeoutMs: Number(core.getInput('timeout_ms') || 45_000),
-    maxItemsToJev: Number(core.getInput('max_items_to_jev') || 40),
+    jevEndpoint: config.jevEndpoint,
+    jevModel: config.jevModel,
+    timeoutMs: config.timeoutMs,
+    maxItemsToJev: config.maxItemsToJev,
     apiKey: resolveApiKey(jevProvider),
     commentOnGithub,
     createCheckRun,
     writeReportArtifact,
-    requestReviewers: core.getInput('request_reviewers') || undefined,
-    structuredLogs: optionalBoolean('structured_logs', false),
+    requestReviewers: config.requestReviewers,
+    structuredLogs: config.structuredLogs,
     dryRun,
     headSha: targetRef,
     commentClient,

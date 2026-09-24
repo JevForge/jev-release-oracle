@@ -8,12 +8,12 @@ export function createCustomCompatibleProvider(options: JevProviderOptions): Jev
   return {
     id: 'custom-compatible',
     async evaluateRelease(state: ReleaseEvaluationState) {
-      if (!options.apiKey) return unavailable('JEV_CUSTOM_API_KEY is required for custom-compatible');
-      if (!options.endpoint) return unavailable('jev_endpoint is required for custom-compatible');
+      if (!options.apiKey) return unavailable('JEV_CUSTOM_API_KEY is required for custom-compatible', 'secret_missing');
+      if (!options.endpoint) return unavailable('jev_endpoint is required for custom-compatible', 'configuration');
       if (!options.endpoint.startsWith('https://')) {
-        return unavailable('jev_endpoint must be HTTPS for custom-compatible');
+        return unavailable('jev_endpoint must be HTTPS for custom-compatible', 'configuration');
       }
-      if (!options.model) return unavailable('jev_model is required for custom-compatible');
+      if (!options.model) return unavailable('jev_model is required for custom-compatible', 'configuration');
       return postEvaluate({
         endpoint: options.endpoint,
         apiKey: options.apiKey,

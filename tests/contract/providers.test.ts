@@ -138,4 +138,61 @@ describe('Jev providers', () => {
     expect(bad.status).toBe('unavailable');
     if (bad.status === 'unavailable') expect(bad.message).toMatch(/HTTPS/);
   });
+
+  it('classifies provider failures without exposing credentials or response bodies', async () => {
+    const missing = await createJevProvider({
+      provider: 'custom-compatible',
+      endpoint: 'https://jev.example/evaluate',
+      model: 'model',
+      timeoutMs: 1000,
+    }).evaluateRelease(state);
+    expect(missing).toMatchObject({ status: 'unavailable', error_code: 'secret_missing' });
+
+    const response = (status: number, body = 'Bearer sk-super-secret-response-body') =>
+      (async () => new Response(body, { status })) as unknown as typeof fetch;
+    const unauthorized = await createJevProvider({
+      provider: 'custom-compatible',
+      apiKey: 'sk-input-secret',
+      endpoint: 'https://jev.example/evaluate',
+      model: 'model',
+      timeoutMs: 1000,
+      fetchImpl: response(401),
+    }).evaluateRelease(state);
+    expect(unauthorized).toMatchObject({ status: 'unavailable', error_code: 'unauthorized' });
+    expect(unauthorized).not.toMatchObject({ message: expect.stringContaining('sk-super-secret') });
+
+    const limited = await createJevProvider({
+      provider: 'custom-compatible',
+      apiKey: 'key',
+      endpoint: 'https://jev.example/evaluate',
+      model: 'model',
+      timeoutMs: 1000,
+      fetchImpl: response(429),
+    }).evaluateRelease(state);
+    expect(limited).toMatchObject({ status: 'unavailable', error_code: 'rate_limited' });
+
+    const timedOut = await createJevProvider({
+      provider: 'custom-compatible',
+      apiKey: 'key',
+      endpoint: 'https://jev.example/evaluate',
+      model: 'model',
+      timeoutMs: 1,
+      fetchImpl: (async () => {
+        const error = new Error('The operation timed out');
+        error.name = 'TimeoutError';
+        throw error;
+      }) as typeof fetch,
+    }).evaluateRelease(state);
+    expect(timedOut).toMatchObject({ status: 'unavailable', error_code: 'timeout' });
+
+    const malformedBody = await createJevProvider({
+      provider: 'custom-compatible',
+      apiKey: 'key',
+      endpoint: 'https://jev.example/evaluate',
+      model: 'model',
+      timeoutMs: 1000,
+      fetchImpl: (async () => new Response('{not-json', { status: 200 })) as typeof fetch,
+    }).evaluateRelease(state);
+    expect(malformedBody).toMatchObject({ status: 'schema_rejected', error_code: 'schema_rejected' });
+  });
 });

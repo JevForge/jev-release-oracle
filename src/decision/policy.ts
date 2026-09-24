@@ -23,9 +23,16 @@ export function stricter(left: Decision, right: Decision): Decision {
   return DECISION_RANK[left] >= DECISION_RANK[right] ? left : right;
 }
 
+function effectiveRisk(report: ReleaseRiskReport): ReleaseRiskReport['risk'] {
+  return report.baseline.mode === 'new_only' && report.baseline.available
+    ? report.baseline.new_risk
+    : report.risk;
+}
+
 export function floorDecision(report: ReleaseRiskReport): Decision {
   let floor: Decision = 'proceed';
-  const { risk, deployments, changelog } = report;
+  const risk = effectiveRisk(report);
+  const { deployments, changelog } = report;
 
   if (
     risk.critical_vulns > 0 ||
@@ -59,6 +66,10 @@ export function floorDecision(report: ReleaseRiskReport): Decision {
     } else {
       floor = stricter(floor, 'warn');
     }
+  }
+
+  for (const upstream of report.upstream_decisions) {
+    floor = stricter(floor, upstream.decision);
   }
 
   return floor;
@@ -100,6 +111,7 @@ function buildReasons(input: {
 }): ReasonCode[] {
   const codes: ReasonCode[] = [];
   const { report, floor } = input;
+  const risk = effectiveRisk(report);
   const hasSignals =
     report.commits.length > 0 ||
     report.findings.length > 0 ||
@@ -113,21 +125,22 @@ function buildReasons(input: {
   if (report.checks.total > 0 && report.checks.failure === 0 && report.checks.pending === 0) {
     pushCode(codes, 'ALL_CHECKS_GREEN');
   }
-  if (report.risk.failed_checks > 0 || report.checks.failure > 0) pushCode(codes, 'TESTS_FAILED');
-  if (report.risk.pending_checks > 0 || report.checks.pending > 0) pushCode(codes, 'CHECKS_PENDING');
-  if (report.risk.critical_vulns > 0) pushCode(codes, 'CRITICAL_VULN');
-  if (report.risk.high_vulns > 0) pushCode(codes, 'HIGH_VULN');
-  if (report.risk.breaking_commits > 0 || report.changelog.breaking_mentioned) {
+  if (risk.failed_checks > 0 || report.checks.failure > 0) pushCode(codes, 'TESTS_FAILED');
+  if (risk.pending_checks > 0 || report.checks.pending > 0) pushCode(codes, 'CHECKS_PENDING');
+  if (risk.critical_vulns > 0) pushCode(codes, 'CRITICAL_VULN');
+  if (risk.high_vulns > 0) pushCode(codes, 'HIGH_VULN');
+  if (risk.breaking_commits > 0 || report.changelog.breaking_mentioned) {
     pushCode(codes, 'BREAKING_CHANGE');
   }
-  if (report.risk.breaking_commits > 0 && !report.changelog.present) {
+  if (risk.breaking_commits > 0 && !report.changelog.present) {
     pushCode(codes, 'CHANGELOG_MISSING');
+    pushCode(codes, 'BREAKING_CHANGE_UNDOCUMENTED');
   } else if (report.changelog.present) {
     pushCode(codes, 'CHANGELOG_OK');
   }
-  if (report.risk.open_sev1 > 0 || report.risk.open_incidents > 0) pushCode(codes, 'OPEN_INCIDENT');
-  if (report.risk.recent_incidents > 0) pushCode(codes, 'RECENT_INCIDENT');
-  if (report.risk.slo_breaches > 0) pushCode(codes, 'SLO_BREACH');
+  if (risk.open_sev1 > 0 || risk.open_incidents > 0) pushCode(codes, 'OPEN_INCIDENT');
+  if (risk.recent_incidents > 0) pushCode(codes, 'RECENT_INCIDENT');
+  if (risk.slo_breaches > 0) pushCode(codes, 'SLO_BREACH');
   else if (report.metrics.length > 0) pushCode(codes, 'METRICS_OK');
   if (isLargeChangeset(report)) pushCode(codes, 'LARGE_CHANGESET');
   if (report.deployments.failure > 0 || report.deployments.latest_state === 'failure') {
@@ -135,6 +148,17 @@ function buildReasons(input: {
   }
   if (report.deployments.pending > 0 || report.deployments.latest_state === 'pending') {
     pushCode(codes, 'DEPLOY_PENDING');
+  }
+  if (report.upstream_decisions.some(item => item.decision === 'warn')) pushCode(codes, 'UPSTREAM_GATE_WARN');
+  if (report.upstream_decisions.some(item => item.decision === 'review')) pushCode(codes, 'UPSTREAM_GATE_REVIEW');
+  if (report.upstream_decisions.some(item => item.decision === 'hold')) pushCode(codes, 'UPSTREAM_GATE_HOLD');
+  if (report.baseline.mode === 'new_only') {
+    pushCode(codes, 'BASELINE_APPLIED');
+    if (report.baseline.new_findings > 0) pushCode(codes, 'NEW_FINDINGS');
+    if (report.baseline.checks_delta.failure > 0 || report.baseline.checks_delta.required_failed > 0) {
+      pushCode(codes, 'NEW_CHECK_FAILURES');
+    }
+    if (report.baseline.new_incidents > 0) pushCode(codes, 'NEW_INCIDENTS');
   }
   if (floor === 'hold') pushCode(codes, 'POLICY_FLOOR_HOLD');
   if (floor === 'warn') pushCode(codes, 'POLICY_FLOOR_WARN');
@@ -251,6 +275,7 @@ export function applyOraclePolicy(input: ApplyOracleInput): OracleOutcome {
     confidence,
     reason_codes: reasonCodes,
     risk_summary: input.report.risk,
+    baseline_summary: input.report.baseline,
     recommended_checks: recommended,
     summary: buildSummary(decision, input.report, confidence),
     explanation:
@@ -259,6 +284,7 @@ export function applyOraclePolicy(input: ApplyOracleInput): OracleOutcome {
     provisional,
     jev_status: input.jev.status,
     jev_proposed: input.jev.status === 'evaluated' ? proposed : null,
+    jev_error_code: input.jev.status === 'evaluated' ? null : input.jev.error_code ?? null,
     policy_floor: floor,
     held: decision === 'hold',
     environment: input.report.environment,

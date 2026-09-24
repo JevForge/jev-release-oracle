@@ -67,15 +67,36 @@ describe('deterministic release policy', () => {
     ).toBe('hold');
   });
 
-  it('reviews breaking changes without a changelog', () => {
+  it('treats upstream Sentinel and Cost Guardian decisions as an escalation-only floor', () => {
     expect(
       floorDecision(
         report({
-          commits: [{ sha: '1', message: 'feat!: drop API', breaking: true }],
-          changelog: { present: false, breaking_mentioned: false, path: null },
+          upstream_decisions: [
+            { source: 'security-sentinel', decision: 'hold' },
+            { source: 'cloud-cost-guardian', decision: 'proceed' },
+          ],
         }),
       ),
+    ).toBe('hold');
+    expect(
+      floorDecision(
+        report({ upstream_decisions: [{ source: 'cloud-cost-guardian', decision: 'review' }] }),
+      ),
     ).toBe('review');
+  });
+
+  it('reviews breaking changes without a changelog', () => {
+    const breaking = report({
+      commits: [{ sha: '1', message: 'feat!: drop API', breaking: true }],
+      changelog: { present: false, breaking_mentioned: false, path: null },
+    });
+    expect(floorDecision(breaking)).toBe('review');
+    const decision = applyOraclePolicy({
+      report: breaking,
+      jev: { status: 'evaluated', decision: 'review', confidence: 0.9, explanation: 'review', abstain: false },
+      ...defaults,
+    });
+    expect(decision.decision.reason_codes).toContain('BREAKING_CHANGE_UNDOCUMENTED');
   });
 
   it('warns on high vulns or SLO breach, and holds production critical SLO', () => {

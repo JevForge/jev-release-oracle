@@ -27,7 +27,8 @@ Pin `@v0`, an exact tag such as `@v0.1.0`, or a commit SHA.
 * Typed Jev evaluation (`experimental_evaluate`) — not free-form text generation
 * Deterministic policy floor; Jev may escalate, never loosen a `hold`
 * Decisions: `proceed` | `warn` | `hold` | `review`
-* Collectors for signal files, SARIF/findings, GitHub compare, check runs, and deployments
+* Collectors for signal files, SARIF/findings, GitHub compare, check runs, deployments, and release baselines
+* Direct inputs from Security Sentinel and Cloud Cost Guardian outputs
 * Structured outputs for later steps (`decision`, `held`, `risk_summary`, `recommended_checks`, …)
 * Secret-based auth via env (never Action inputs)
 * Configurable failure modes for low confidence and source errors
@@ -62,7 +63,7 @@ flowchart LR
   F --> G[Outputs]
 ```
 
-1. Load evidence from files and optional GitHub APIs.
+1. Load evidence from `.jev/config.yml`, inputs, files, sibling Action outputs, and optional GitHub APIs. Explicit inputs win over file configuration.
 2. Compute a deterministic floor (`proceed` → `warn` → `review` → `hold`).
 3. Call Jev through `jev_provider` (no silent provider fallback).
 4. Reject invalid payloads; merge so the final decision is never weaker than the floor.
@@ -119,6 +120,7 @@ jobs:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         with:
           environment: production
+          fetch_github_compare: 'false'
           signals_path: examples/signals.json
 
       - name: Print decision
@@ -175,7 +177,23 @@ jobs:
       - run: echo "Safe to continue your own publish steps"
 ```
 
-More workflows: [`examples/basic.yml`](examples/basic.yml), [`examples/release-gate.yml`](examples/release-gate.yml), [`examples/gate-and-publish.yml`](examples/gate-and-publish.yml).
+More workflows: [`examples/basic.yml`](examples/basic.yml), [`examples/release-gate.yml`](examples/release-gate.yml), [`examples/gate-and-publish.yml`](examples/gate-and-publish.yml), and [`examples/pr-pre-release.yml`](examples/pr-pre-release.yml).
+
+## Repository configuration
+
+The Action loads `.jev/config.yml` when present. Use the same snake_case names as the inputs; an explicitly supplied workflow input wins, including `false` and `0`. An example is [`examples/.jev/config.yml`](examples/.jev/config.yml).
+
+For accepted release debt, set `baseline_mode: new_only`. The Action first uses `baseline_path` when supplied; otherwise it reads `.jev/release-oracle-report.json` from the previous stable GitHub release tag. Findings, incidents, and check failures remain visible, while the deterministic floor uses only the new delta.
+
+Sibling outputs can be wired directly:
+
+```yaml
+with:
+  sentinel_decision: ${{ steps.sentinel.outputs.decision }}
+  findings: ${{ steps.sentinel.outputs.findings }}
+  cost_decision: ${{ steps.cost.outputs.decision }}
+  metrics: ${{ steps.cost.outputs.findings }}
+```
 
 ## Inputs
 
@@ -215,7 +233,11 @@ More workflows: [`examples/basic.yml`](examples/basic.yml), [`examples/release-g
 
 Paths must stay inside `GITHUB_WORKSPACE`. Provider credentials belong in `env`, not in `with:`.
 
+Additional inputs for pipeline composition: `findings` and `metrics` accept inline JSON; `baseline_path` plus `baseline_mode: new_only` enables an explicit baseline; `sentinel_decision`, `sentinel_findings`, `cost_decision`, and `cost_metrics` accept sibling Action outputs directly.
+
 ## Outputs
+
+`jev_error_code` is emitted when the provider is unavailable or rejects its response. Values distinguish missing secret, configuration, unauthorized (401), rate limited (429), timeout, generic HTTP/network error, and schema rejection.
 
 | Output | Description |
 | --- | --- |

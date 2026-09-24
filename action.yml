@@ -24,6 +24,9 @@ inputs:
   findings_path:
     description: Workspace-relative path to security findings JSON.
     required: false
+  findings:
+    description: Inline findings JSON, including the output of Security Sentinel.
+    required: false
   sarif_path:
     description: Workspace-relative path to a SARIF findings file.
     required: false
@@ -33,50 +36,60 @@ inputs:
   metrics_path:
     description: Workspace-relative path to SLO/metrics JSON.
     required: false
+  metrics:
+    description: Inline metrics JSON, including metrics emitted by a sibling Action.
+    required: false
+  baseline_path:
+    description: Workspace-relative path to a previous release-oracle report used as a baseline.
+    required: false
+  baseline_mode:
+    description: Compare all evidence or only evidence new since the baseline (all|new_only).
+    required: false
+  sentinel_decision:
+    description: JSON or decision output from JEV Security Sentinel (PASS/WARN/BLOCK/REVIEW).
+    required: false
+  sentinel_findings:
+    description: JSON findings output from JEV Security Sentinel.
+    required: false
+  cost_decision:
+    description: JSON or decision output from JEV Cloud Cost Guardian.
+    required: false
+  cost_metrics:
+    description: JSON metrics or findings output from JEV Cloud Cost Guardian.
+    required: false
   fetch_github_compare:
     description: Fetch commits and PRs between base_ref and target_ref via the GitHub API.
     required: false
-    default: 'true'
   fetch_checks:
     description: Fetch check-run conclusions for target_ref.
     required: false
-    default: 'true'
   fetch_deployments:
     description: Fetch recent deployment statuses for the environment.
     required: false
-    default: 'false'
   incident_labels:
     description: Comma-separated labels that mark incident issues.
     required: false
-    default: incident,sev1,sev2
   environment:
     description: Target environment (production, staging, development, or other).
     required: false
-    default: production
   min_confidence:
     description: Minimum Jev confidence (0–1) before proceed can stand.
     required: false
-    default: '0.75'
   low_confidence_policy:
     description: Behavior when confidence is low or Jev is unavailable (fail, warn, request-review, no-op). Never becomes proceed.
     required: false
-    default: fail
   review_mode:
     description: When decision is review, fail the job or continue (fail|continue).
     required: false
-    default: fail
   fail_on_warn:
     description: Fail the workflow when the final decision is warn.
     required: false
-    default: 'false'
   source_error_policy:
     description: When a signal source fails (fail|warn). fail raises the policy floor to at least review.
     required: false
-    default: fail
   jev_provider:
     description: How to reach Jev (vercel-ai-gateway, typesafe-native, or custom-compatible).
     required: false
-    default: vercel-ai-gateway
   jev_endpoint:
     description: HTTPS evaluate endpoint. Required for typesafe-native and custom-compatible.
     required: false
@@ -86,34 +99,27 @@ inputs:
   timeout_ms:
     description: Jev request timeout in milliseconds.
     required: false
-    default: '45000'
   max_items_to_jev:
     description: Maximum evidence items sampled for the Jev payload.
     required: false
-    default: '40'
   comment_on_github:
-    description: Post or update a pull request comment. Requires pull-requests: write.
+    description: 'Post or update a pull request comment. Requires pull-requests: write.'
     required: false
-    default: 'false'
   create_check_run:
-    description: Create a completed Check Run for the release gate. Requires checks: write.
+    description: 'Create a completed Check Run for the release gate. Requires checks: write.'
     required: false
-    default: 'true'
   write_report_artifact:
     description: Write markdown and JSON report files under .jev/.
     required: false
-    default: 'false'
   request_reviewers:
     description: Comma-separated GitHub logins to request when decision is hold or review.
     required: false
   structured_logs:
     description: Emit a structured JSON info log with decision metadata (no secrets).
     required: false
-    default: 'false'
   dry_run:
     description: Evaluate and emit outputs, but skip comment, check run, and reviewer writes.
     required: false
-    default: 'false'
   github_token:
     description: Token used for GitHub API reads/writes when enabled.
     required: false
@@ -128,6 +134,8 @@ outputs:
     description: JSON array of stable reason codes.
   risk_summary:
     description: JSON object summarizing release risk counts.
+  baseline_summary:
+    description: JSON object with baseline availability and new-only deltas.
   recommended_checks:
     description: JSON array of allowlisted recommended checks.
   held:
@@ -136,6 +144,8 @@ outputs:
     description: true when Jev did not return a usable typed decision.
   jev_status:
     description: evaluated, unavailable, or schema_rejected.
+  jev_error_code:
+    description: Stable provider error class when Jev was unavailable or rejected.
   jev_proposed:
     description: Decision Jev proposed, or empty when unavailable.
   policy_floor:

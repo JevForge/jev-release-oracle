@@ -12,6 +12,8 @@ import {
   type ReleaseRiskReport,
   type RiskCounts,
   type SourceError,
+  type UpstreamDecision,
+  type BaselineSummary,
 } from '../schemas/oracle.js';
 import { emptyChecks, emptyDeployments, isBreakingCommitMessage } from './signals.js';
 
@@ -60,6 +62,8 @@ export function buildReleaseRiskReport(input: {
   findings?: Finding[];
   incidents?: Incident[];
   metrics?: Metric[];
+  upstream_decisions?: UpstreamDecision[];
+  baseline?: BaselineSummary;
   source_errors?: SourceError[];
   breakingHint?: boolean;
 }): ReleaseRiskReport {
@@ -92,6 +96,23 @@ export function buildReleaseRiskReport(input: {
     findings,
     incidents,
     metrics,
+    upstream_decisions: input.upstream_decisions ?? [],
+    baseline: input.baseline ?? {
+      mode: 'all',
+      ref: null,
+      available: false,
+      matched_findings: 0,
+      new_findings: findings.length,
+      matched_incidents: 0,
+      new_incidents: incidents.length,
+      checks_delta: {
+        failure: checks.failure,
+        pending: checks.pending,
+        required_failed: checks.required_failed,
+      },
+      new_risk: risk,
+      source_errors: [],
+    },
     source_errors: (input.source_errors ?? []).slice(0, 32),
     risk,
   });

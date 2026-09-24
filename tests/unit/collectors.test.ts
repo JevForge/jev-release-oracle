@@ -106,4 +106,55 @@ describe('collectors', () => {
     });
     expect(report.source_errors.some(error => error.source === 'findings')).toBe(true);
   });
+
+  it('accepts sibling Action outputs directly', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'jev-oracle-siblings-'));
+    const report = await loadReleaseReport({
+      workspace: root,
+      targetRef: 'abc',
+      baseRef: null,
+      environment: 'production',
+      fetchGithubCompare: false,
+      fetchChecks: false,
+      fetchDeployments: false,
+      sentinelDecision: JSON.stringify({ decision: 'BLOCK' }),
+      sentinelFindings: JSON.stringify({ findings: [{ id: 's1', severity: 'critical', title: 'rce' }] }),
+      costMetrics: JSON.stringify({ utilization: 1.1 }),
+    });
+
+    expect(report.upstream_decisions).toEqual([
+      { source: 'security-sentinel', decision: 'hold' },
+    ]);
+    expect(report.findings[0]?.severity).toBe('critical');
+    expect(report.metrics.some(metric => metric.name === 'cost_utilization')).toBe(true);
+  });
+
+  it('loads an explicit release report baseline in new_only mode', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'jev-oracle-baseline-'));
+    mkdirSync(join(root, '.jev'), { recursive: true });
+    writeFileSync(
+      join(root, '.jev', 'baseline.json'),
+      JSON.stringify({
+        findings: [{ id: 'known', severity: 'critical', title: 'known' }],
+        incidents: [],
+        checks: { total: 1, success: 0, failure: 1, pending: 0, required_failed: 1, conclusions: ['failure'] },
+      }),
+    );
+    const report = await loadReleaseReport({
+      workspace: root,
+      targetRef: 'v2',
+      baseRef: 'v1',
+      environment: 'production',
+      findingsPath: 'findings.json',
+      baselinePath: '.jev/baseline.json',
+      baselineMode: 'new_only',
+      fetchGithubCompare: false,
+      fetchChecks: false,
+      fetchDeployments: false,
+    });
+
+    expect(report.baseline.available).toBe(true);
+    expect(report.baseline.matched_findings).toBe(0);
+    expect(report.baseline.checks_delta.failure).toBe(0);
+  });
 });

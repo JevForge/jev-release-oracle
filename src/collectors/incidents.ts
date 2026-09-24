@@ -24,6 +24,9 @@ function parseIncidents(raw: unknown): Incident[] {
       title: sanitizeText(String(row.title ?? id), 300),
       status,
       opened_at: typeof row.opened_at === 'string' ? sanitizeText(row.opened_at, 64) : undefined,
+      labels: Array.isArray(row.labels)
+        ? row.labels.filter((label): label is string => typeof label === 'string').map(label => sanitizeText(label, 64)).slice(0, 32)
+        : undefined,
     });
   }
   return out;
@@ -63,7 +66,7 @@ export function filterIncidentsByLabels(
   if (!labels.length) return incidents;
   const wanted = new Set(labels.map(label => label.toLowerCase()));
   return incidents.filter(incident => {
-    const hay = `${incident.id} ${incident.title} ${incident.severity}`.toLowerCase();
+    const hay = `${incident.id} ${incident.title} ${incident.severity} ${(incident.labels ?? []).join(' ')}`.toLowerCase();
     return [...wanted].some(label => hay.includes(label));
   });
 }

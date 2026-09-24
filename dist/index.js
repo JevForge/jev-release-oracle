@@ -20188,14 +20188,14 @@ var require_dist_node2 = __commonJS({
       const Ctor = Object.prototype.hasOwnProperty.call(proto, "constructor") && proto.constructor;
       return typeof Ctor === "function" && Ctor instanceof Ctor && Function.prototype.call(Ctor) === Function.prototype.call(value);
     }
-    function mergeDeep(defaults, options) {
-      const result = Object.assign({}, defaults);
+    function mergeDeep(defaults2, options) {
+      const result = Object.assign({}, defaults2);
       Object.keys(options).forEach((key) => {
         if (isPlainObject2(options[key])) {
-          if (!(key in defaults))
+          if (!(key in defaults2))
             Object.assign(result, { [key]: options[key] });
           else
-            result[key] = mergeDeep(defaults[key], options[key]);
+            result[key] = mergeDeep(defaults2[key], options[key]);
         } else {
           Object.assign(result, { [key]: options[key] });
         }
@@ -20210,7 +20210,7 @@ var require_dist_node2 = __commonJS({
       }
       return obj;
     }
-    function merge2(defaults, route, options) {
+    function merge2(defaults2, route, options) {
       if (typeof route === "string") {
         let [method, url] = route.split(" ");
         options = Object.assign(url ? { method, url } : { url: method }, options);
@@ -20220,10 +20220,10 @@ var require_dist_node2 = __commonJS({
       options.headers = lowercaseKeys(options.headers);
       removeUndefinedProperties(options);
       removeUndefinedProperties(options.headers);
-      const mergedOptions = mergeDeep(defaults || {}, options);
+      const mergedOptions = mergeDeep(defaults2 || {}, options);
       if (options.url === "/graphql") {
-        if (defaults && defaults.mediaType.previews?.length) {
-          mergedOptions.mediaType.previews = defaults.mediaType.previews.filter(
+        if (defaults2 && defaults2.mediaType.previews?.length) {
+          mergedOptions.mediaType.previews = defaults2.mediaType.previews.filter(
             (preview) => !mergedOptions.mediaType.previews.includes(preview)
           ).concat(mergedOptions.mediaType.previews);
         }
@@ -20457,8 +20457,8 @@ var require_dist_node2 = __commonJS({
         options.request ? { request: options.request } : null
       );
     }
-    function endpointWithDefaults(defaults, route, options) {
-      return parse2(merge2(defaults, route, options));
+    function endpointWithDefaults(defaults2, route, options) {
+      return parse2(merge2(defaults2, route, options));
     }
     function withDefaults(oldDefaults, newDefaults) {
       const DEFAULTS2 = merge2(oldDefaults, newDefaults);
@@ -21132,21 +21132,21 @@ var require_dist_node8 = __commonJS({
       static {
         this.VERSION = VERSION4;
       }
-      static defaults(defaults) {
+      static defaults(defaults2) {
         const OctokitWithDefaults = class extends this {
           constructor(...args) {
             const options = args[0] || {};
-            if (typeof defaults === "function") {
-              super(defaults(options));
+            if (typeof defaults2 === "function") {
+              super(defaults2(options));
               return;
             }
             super(
               Object.assign(
                 {},
-                defaults,
+                defaults2,
                 options,
-                options.userAgent && defaults.userAgent ? {
-                  userAgent: `${options.userAgent} ${defaults.userAgent}`
+                options.userAgent && defaults2.userAgent ? {
+                  userAgent: `${options.userAgent} ${defaults2.userAgent}`
                 } : null
               )
             );
@@ -23262,14 +23262,14 @@ var require_dist_node9 = __commonJS({
     var endpointMethodsMap = /* @__PURE__ */ new Map();
     for (const [scope, endpoints] of Object.entries(endpoints_default)) {
       for (const [methodName, endpoint] of Object.entries(endpoints)) {
-        const [route, defaults, decorations] = endpoint;
+        const [route, defaults2, decorations] = endpoint;
         const [method, url] = route.split(/ /);
         const endpointDefaults = Object.assign(
           {
             method,
             url
           },
-          defaults
+          defaults2
         );
         if (!endpointMethodsMap.has(scope)) {
           endpointMethodsMap.set(scope, /* @__PURE__ */ new Map());
@@ -23339,8 +23339,8 @@ var require_dist_node9 = __commonJS({
       }
       return newMethods;
     }
-    function decorate(octokit, scope, methodName, defaults, decorations) {
-      const requestWithDefaults = octokit.request.defaults(defaults);
+    function decorate(octokit, scope, methodName, defaults2, decorations) {
+      const requestWithDefaults = octokit.request.defaults(defaults2);
       function withDecorations(...args) {
         let options = requestWithDefaults.endpoint.merge(...args);
         if (decorations.mapToData) {
@@ -31997,7 +31997,8 @@ var SECRET_PATTERNS = [
   /\bAI_GATEWAY_API_KEY\s*[:=]\s*\S+/gi,
   /\bTYPESAFE_API_KEY\s*[:=]\s*\S+/gi,
   /\bJEV_CUSTOM_API_KEY\s*[:=]\s*\S+/gi,
-  /\bBearer\s+[A-Za-z0-9._\-+=/]{12,}/gi
+  /\bBearer\s+[A-Za-z0-9._\-+=/]{12,}/gi,
+  /([?&](?:api[_-]?key|token|secret)=)[^&\s]+/gi
 ];
 function redactSecrets(text2) {
   let out = text2;
@@ -36123,7 +36124,15 @@ var REASON_CODES = [
   "SOURCE_UNAVAILABLE",
   "DEPLOY_FAILED",
   "DEPLOY_PENDING",
-  "RECOMMENDED_CHECKS"
+  "RECOMMENDED_CHECKS",
+  "UPSTREAM_GATE_WARN",
+  "UPSTREAM_GATE_REVIEW",
+  "UPSTREAM_GATE_HOLD",
+  "BASELINE_APPLIED",
+  "NEW_FINDINGS",
+  "NEW_CHECK_FAILURES",
+  "NEW_INCIDENTS",
+  "BREAKING_CHANGE_UNDOCUMENTED"
 ];
 var DECISION_RANK = {
   proceed: 0,
@@ -36171,6 +36180,11 @@ var ChangelogInfoSchema = external_exports.object({
 }).strict();
 var FindingSchema = external_exports.object({
   id: external_exports.string().min(1).max(128),
+  fingerprint: external_exports.string().max(128).optional(),
+  source: external_exports.string().max(64).optional(),
+  rule_id: external_exports.string().max(256).optional(),
+  path: external_exports.string().max(512).optional(),
+  start_line: external_exports.number().int().positive().optional(),
   severity: external_exports.enum(FINDING_SEVERITIES),
   title: external_exports.string().max(300),
   package: external_exports.string().max(200).optional(),
@@ -36181,7 +36195,8 @@ var IncidentSchema = external_exports.object({
   severity: external_exports.enum(INCIDENT_SEVERITIES),
   title: external_exports.string().max(300),
   status: external_exports.enum(["open", "mitigated", "resolved", "unknown"]),
-  opened_at: external_exports.string().max(64).optional()
+  opened_at: external_exports.string().max(64).optional(),
+  labels: external_exports.array(external_exports.string().max(64)).max(32).optional()
 }).strict();
 var MetricSchema = external_exports.object({
   name: external_exports.string().min(1).max(128),
@@ -36189,6 +36204,10 @@ var MetricSchema = external_exports.object({
   threshold: external_exports.number().finite().optional(),
   breached: external_exports.boolean(),
   unit: external_exports.string().max(32).optional()
+}).strict();
+var UpstreamDecisionSchema = external_exports.object({
+  source: external_exports.string().min(1).max(64),
+  decision: external_exports.enum(DECISIONS)
 }).strict();
 var RiskCountsSchema = external_exports.object({
   critical_vulns: external_exports.number().int().nonnegative(),
@@ -36203,6 +36222,22 @@ var RiskCountsSchema = external_exports.object({
   commit_count: external_exports.number().int().nonnegative(),
   pr_count: external_exports.number().int().nonnegative()
 }).strict();
+var BaselineSummarySchema = external_exports.object({
+  mode: external_exports.enum(["all", "new_only"]),
+  ref: external_exports.string().max(256).nullable(),
+  available: external_exports.boolean(),
+  matched_findings: external_exports.number().int().nonnegative(),
+  new_findings: external_exports.number().int().nonnegative(),
+  matched_incidents: external_exports.number().int().nonnegative(),
+  new_incidents: external_exports.number().int().nonnegative(),
+  checks_delta: external_exports.object({
+    failure: external_exports.number().int().nonnegative(),
+    pending: external_exports.number().int().nonnegative(),
+    required_failed: external_exports.number().int().nonnegative()
+  }).strict(),
+  new_risk: RiskCountsSchema,
+  source_errors: external_exports.array(SourceErrorSchema).max(8)
+}).strict();
 var ReleaseRiskReportSchema = external_exports.object({
   target_ref: external_exports.string().min(1).max(256),
   base_ref: external_exports.string().max(256).nullable(),
@@ -36215,6 +36250,8 @@ var ReleaseRiskReportSchema = external_exports.object({
   findings: external_exports.array(FindingSchema).max(2e3),
   incidents: external_exports.array(IncidentSchema).max(200),
   metrics: external_exports.array(MetricSchema).max(200),
+  upstream_decisions: external_exports.array(UpstreamDecisionSchema).max(8),
+  baseline: BaselineSummarySchema,
   source_errors: external_exports.array(SourceErrorSchema).max(32),
   risk: RiskCountsSchema
 }).strict();
@@ -36223,12 +36260,14 @@ var OracleDecisionSchema = external_exports.object({
   confidence: external_exports.number().min(0).max(1),
   reason_codes: external_exports.array(external_exports.enum(REASON_CODES)).min(1).max(24),
   risk_summary: RiskCountsSchema,
+  baseline_summary: BaselineSummarySchema,
   recommended_checks: external_exports.array(external_exports.enum(RECOMMENDED_CHECKS)).max(8),
   summary: external_exports.string().min(1).max(500),
   explanation: external_exports.string().max(2e3),
   provisional: external_exports.boolean(),
   jev_status: external_exports.enum(JEV_STATUSES),
   jev_proposed: external_exports.enum(DECISIONS).nullable(),
+  jev_error_code: external_exports.string().max(64).nullable().optional(),
   policy_floor: external_exports.enum(DECISIONS),
   held: external_exports.boolean(),
   environment: external_exports.enum(ENVIRONMENTS),
@@ -36434,6 +36473,23 @@ function buildReleaseRiskReport(input) {
     findings,
     incidents,
     metrics,
+    upstream_decisions: input.upstream_decisions ?? [],
+    baseline: input.baseline ?? {
+      mode: "all",
+      ref: null,
+      available: false,
+      matched_findings: 0,
+      new_findings: findings.length,
+      matched_incidents: 0,
+      new_incidents: incidents.length,
+      checks_delta: {
+        failure: checks.failure,
+        pending: checks.pending,
+        required_failed: checks.required_failed
+      },
+      new_risk: risk,
+      source_errors: []
+    },
     source_errors: (input.source_errors ?? []).slice(0, 32),
     risk
   });
@@ -36543,17 +36599,27 @@ async function fetchDeployments(input) {
   try {
     const deployments = await input.client.listDeployments(input.owner, input.repo, input.environment);
     const summary2 = emptyDeployments();
+    const errors = [];
     for (const deployment of deployments.slice(0, 20)) {
-      const statuses = await input.client.getStatuses(input.owner, input.repo, deployment.id);
+      summary2.total += 1;
+      let statuses;
+      try {
+        statuses = await input.client.getStatuses(input.owner, input.repo, deployment.id);
+      } catch (error) {
+        errors.push({
+          source: "github-deployments",
+          message: sanitizeText(error instanceof Error ? error.message : String(error), 400)
+        });
+        continue;
+      }
       const latest = statuses[0];
       const state = mapState(latest?.state);
-      summary2.total += 1;
       if (state === "success") summary2.success += 1;
       else if (state === "pending") summary2.pending += 1;
       else if (state === "failure" || state === "error") summary2.failure += 1;
       summary2.latest_state = state;
     }
-    return { deployments: summary2, errors: [] };
+    return { deployments: summary2, errors };
   } catch (error) {
     return {
       deployments: emptyDeployments(),
@@ -36583,6 +36649,11 @@ function fromNormalized(raw) {
     if (!id) continue;
     out.push({
       id: sanitizeText(id, 128),
+      fingerprint: typeof row.fingerprint === "string" ? sanitizeText(row.fingerprint, 128) : void 0,
+      source: typeof row.source === "string" ? sanitizeText(row.source, 64) : void 0,
+      rule_id: typeof row.rule_id === "string" ? sanitizeText(row.rule_id, 256) : void 0,
+      path: typeof row.path === "string" ? sanitizeText(row.path, 512) : void 0,
+      start_line: typeof row.start_line === "number" && Number.isInteger(row.start_line) && row.start_line > 0 ? row.start_line : void 0,
       severity: normalizeSeverity(row.severity),
       title: sanitizeText(String(row.title ?? row.message ?? id), 300),
       package: typeof row.package === "string" ? sanitizeText(row.package, 200) : void 0,
@@ -36605,9 +36676,20 @@ function fromSarif(raw) {
       const row = result;
       const level = typeof row.level === "string" ? row.level : "warning";
       const ruleId = typeof row.ruleId === "string" ? row.ruleId : `sarif-${index}`;
+      const properties = row.properties && typeof row.properties === "object" ? row.properties : {};
+      const fingerprints = row.partialFingerprints && typeof row.partialFingerprints === "object" ? row.partialFingerprints : {};
+      const location = Array.isArray(row.locations) && row.locations[0] && typeof row.locations[0] === "object" ? row.locations[0] : {};
+      const physical = location.physicalLocation && typeof location.physicalLocation === "object" ? location.physicalLocation : {};
+      const artifact = physical.artifactLocation && typeof physical.artifactLocation === "object" ? physical.artifactLocation : {};
+      const region = physical.region && typeof physical.region === "object" ? physical.region : {};
       const message = row.message && typeof row.message === "object" ? String(row.message.text ?? ruleId) : String(row.message ?? ruleId);
       out.push({
         id: sanitizeText(ruleId, 128),
+        fingerprint: typeof fingerprints.primaryLocationLineHash === "string" ? sanitizeText(fingerprints.primaryLocationLineHash, 128) : void 0,
+        rule_id: sanitizeText(ruleId, 256),
+        path: typeof artifact.uri === "string" ? sanitizeText(artifact.uri, 512) : void 0,
+        start_line: typeof region.startLine === "number" && Number.isInteger(region.startLine) && region.startLine > 0 ? region.startLine : void 0,
+        cve: typeof properties.cve === "string" ? sanitizeText(properties.cve, 64) : void 0,
         severity: normalizeSeverity(level),
         title: sanitizeText(message, 300)
       });
@@ -36617,9 +36699,19 @@ function fromSarif(raw) {
   }
   return out;
 }
-function loadFindings(workspace, findingsPath, sarifPath) {
+function loadFindings(workspace, findingsPath, sarifPath, findingsJson) {
   const errors = [];
   const findings = [];
+  if (findingsJson?.trim()) {
+    try {
+      findings.push(...fromNormalized(parseJsonOrYaml(findingsJson)));
+    } catch (error) {
+      errors.push({
+        source: "findings",
+        message: sanitizeText(error instanceof Error ? error.message : String(error), 400)
+      });
+    }
+  }
   if (findingsPath?.trim()) {
     const text2 = readWorkspaceText(workspace, findingsPath);
     if (text2 == null) {
@@ -36735,7 +36827,8 @@ function parseIncidents(raw) {
       severity: normalizeIncidentSeverity(row.severity ?? row.sev),
       title: sanitizeText(String(row.title ?? id), 300),
       status,
-      opened_at: typeof row.opened_at === "string" ? sanitizeText(row.opened_at, 64) : void 0
+      opened_at: typeof row.opened_at === "string" ? sanitizeText(row.opened_at, 64) : void 0,
+      labels: Array.isArray(row.labels) ? row.labels.filter((label) => typeof label === "string").map((label) => sanitizeText(label, 64)).slice(0, 32) : void 0
     });
   }
   return out;
@@ -36767,26 +36860,38 @@ function filterIncidentsByLabels(incidents, labels) {
   if (!labels.length) return incidents;
   const wanted = new Set(labels.map((label) => label.toLowerCase()));
   return incidents.filter((incident) => {
-    const hay = `${incident.id} ${incident.title} ${incident.severity}`.toLowerCase();
+    const hay = `${incident.id} ${incident.title} ${incident.severity} ${(incident.labels ?? []).join(" ")}`.toLowerCase();
     return [...wanted].some((label) => hay.includes(label));
   });
 }
 
 // src/collectors/metrics.ts
 function parseMetrics(raw) {
-  const list = Array.isArray(raw) ? raw : raw && typeof raw === "object" && Array.isArray(raw.metrics) ? raw.metrics : [];
+  const list = Array.isArray(raw) ? raw : raw && typeof raw === "object" && Array.isArray(raw.metrics) ? raw.metrics : raw && typeof raw === "object" && Array.isArray(raw.findings) ? raw.findings : [];
   const out = [];
   for (const item of list.slice(0, 200)) {
     if (!item || typeof item !== "object") continue;
     const row = item;
-    if (typeof row.name !== "string" || typeof row.value !== "number" || !Number.isFinite(row.value)) {
+    const isCostLine = typeof row.id === "string" && typeof row.monthly_cost === "number" && Number.isFinite(row.monthly_cost);
+    const name25 = typeof row.name === "string" ? row.name : null;
+    const value = typeof row.value === "number" && Number.isFinite(row.value) ? row.value : null;
+    if (!isCostLine && name25 === null || !isCostLine && value === null) {
+      continue;
+    }
+    if (isCostLine) {
+      out.push({
+        name: sanitizeText(`cost:${row.id}`, 128),
+        value: row.monthly_cost,
+        breached: false,
+        unit: typeof row.currency === "string" ? sanitizeText(row.currency, 32) : void 0
+      });
       continue;
     }
     const threshold = typeof row.threshold === "number" && Number.isFinite(row.threshold) ? row.threshold : void 0;
-    const breached = typeof row.breached === "boolean" ? row.breached : threshold != null ? row.value > threshold : false;
+    const breached = typeof row.breached === "boolean" ? row.breached : threshold != null ? value > threshold : false;
     out.push({
-      name: sanitizeText(row.name, 128),
-      value: row.value,
+      name: sanitizeText(name25, 128),
+      value,
       threshold,
       breached,
       unit: typeof row.unit === "string" ? sanitizeText(row.unit, 32) : void 0
@@ -36794,13 +36899,28 @@ function parseMetrics(raw) {
   }
   return out;
 }
-function loadMetrics(workspace, path) {
-  if (!path?.trim()) return { metrics: [], errors: [] };
-  const text2 = readWorkspaceText(workspace, path);
+function parseMetricsDocument(raw) {
+  return parseMetrics(raw);
+}
+function loadMetrics(workspace, path, metricsJson) {
+  const inline = metricsJson;
+  if (!path?.trim() && !inline?.trim()) return { metrics: [], errors: [] };
+  if (!path?.trim() && inline?.trim()) {
+    try {
+      return { metrics: parseMetrics(parseJsonOrYaml(inline)), errors: [] };
+    } catch (error) {
+      return {
+        metrics: [],
+        errors: [{ source: "metrics", message: sanitizeText(error instanceof Error ? error.message : String(error), 400) }]
+      };
+    }
+  }
+  const filePath = path;
+  const text2 = readWorkspaceText(workspace, filePath);
   if (text2 == null) {
     return {
       metrics: [],
-      errors: [{ source: "metrics", message: `Metrics file not found: ${sanitizeText(path, 200)}` }]
+      errors: [{ source: "metrics", message: `Metrics file not found: ${sanitizeText(filePath, 200)}` }]
     };
   }
   try {
@@ -36816,6 +36936,186 @@ function loadMetrics(workspace, path) {
       ]
     };
   }
+}
+
+// src/collectors/siblings.ts
+function parseValue(raw, source) {
+  try {
+    return { value: parseJsonOrYaml(raw) };
+  } catch (error) {
+    return {
+      value: null,
+      error: {
+        source,
+        message: sanitizeText(`Invalid sibling output: ${error instanceof Error ? error.message : String(error)}`, 400)
+      }
+    };
+  }
+}
+function record(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function decisionFromValue(value, source) {
+  const raw = typeof value === "string" ? value : record(value)?.decision;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim().toLowerCase();
+  const mapped = source === "security-sentinel" ? { pass: "proceed", proceed: "proceed", warn: "warn", review: "review", block: "hold", hold: "hold" }[normalized] : { approve: "proceed", proceed: "proceed", warn: "warn", "manual-review": "review", review: "review", block: "hold", hold: "hold" }[normalized];
+  return mapped ?? null;
+}
+function parseFindings(value) {
+  const list = Array.isArray(value) ? value : record(value)?.findings;
+  if (!Array.isArray(list)) return [];
+  const findings = [];
+  for (const item of list.slice(0, 2e3)) {
+    const row = record(item);
+    if (!row) continue;
+    const id = typeof row.id === "string" ? row.id : typeof row.rule_id === "string" ? row.rule_id : typeof row.fingerprint === "string" ? row.fingerprint : null;
+    if (!id) continue;
+    findings.push({
+      id: sanitizeText(id, 128),
+      severity: normalizeSeverity(row.severity),
+      title: sanitizeText(String(row.title ?? row.message ?? row.rule_id ?? id), 300),
+      package: typeof row.package === "string" ? sanitizeText(row.package, 200) : typeof row.component === "string" ? sanitizeText(row.component, 200) : void 0,
+      cve: typeof row.cve === "string" ? sanitizeText(row.cve, 64) : void 0
+    });
+  }
+  return findings;
+}
+function parseMetrics2(value) {
+  const metrics = parseMetricsDocument(value);
+  const root = record(value);
+  if (root && typeof root.utilization === "number") {
+    metrics.push({ name: "cost_utilization", value: root.utilization, threshold: 1, breached: root.utilization >= 1 });
+  }
+  if (root && typeof root.budget_remaining === "number") {
+    metrics.push({ name: "cost_budget_remaining", value: root.budget_remaining, threshold: 0, breached: root.budget_remaining < 0 });
+  }
+  return metrics.slice(0, 200);
+}
+function parseSiblingSignals(input) {
+  const errors = [];
+  const decisions = [];
+  let findings = [];
+  let metrics = [];
+  if (input.sentinelDecision?.trim()) {
+    const parsed = parseValue(input.sentinelDecision, "security-sentinel");
+    if (parsed.error) errors.push(parsed.error);
+    else {
+      const decision2 = decisionFromValue(parsed.value, "security-sentinel");
+      if (decision2) decisions.push({ source: "security-sentinel", decision: decision2 });
+      else errors.push({ source: "security-sentinel", message: "Unrecognized Security Sentinel decision output" });
+    }
+  }
+  if (input.sentinelFindings?.trim()) {
+    const parsed = parseValue(input.sentinelFindings, "security-sentinel");
+    if (parsed.error) errors.push(parsed.error);
+    else findings = findings.concat(parseFindings(parsed.value));
+  }
+  if (input.costDecision?.trim()) {
+    const parsed = parseValue(input.costDecision, "cloud-cost-guardian");
+    if (parsed.error) errors.push(parsed.error);
+    else {
+      const decision2 = decisionFromValue(parsed.value, "cloud-cost-guardian");
+      if (decision2) decisions.push({ source: "cloud-cost-guardian", decision: decision2 });
+      else errors.push({ source: "cloud-cost-guardian", message: "Unrecognized Cloud Cost Guardian decision output" });
+      metrics = metrics.concat(parseMetrics2(parsed.value));
+    }
+  }
+  if (input.costMetrics?.trim()) {
+    const parsed = parseValue(input.costMetrics, "cloud-cost-guardian");
+    if (parsed.error) errors.push(parsed.error);
+    else metrics = metrics.concat(parseMetrics2(parsed.value));
+  }
+  const decision = decisions.reduce((current, item) => {
+    if (!current || DECISION_RANK[item.decision] > DECISION_RANK[current]) return item.decision;
+    return current;
+  }, null);
+  return { decision, decisions, findings: findings.slice(0, 2e3), metrics: metrics.slice(0, 200), errors };
+}
+
+// src/collectors/baseline.ts
+var BaselineSnapshotSchema = external_exports.object({
+  target_ref: external_exports.string().optional(),
+  findings: external_exports.array(FindingSchema).max(2e3).optional(),
+  incidents: external_exports.array(IncidentSchema).max(200).optional(),
+  checks: CheckSummarySchema.optional()
+}).passthrough();
+function parseBaselineSnapshot(raw) {
+  const parsed = BaselineSnapshotSchema.safeParse(raw);
+  if (!parsed.success) throw new Error(`Invalid baseline snapshot: ${parsed.error.message}`);
+  return parsed.data;
+}
+function findingKey(finding) {
+  return [finding.id, finding.cve ?? "", finding.package ?? ""].join("|").toLowerCase();
+}
+function incidentKey(incident) {
+  return incident.id.toLowerCase();
+}
+function delta(current, previous) {
+  return Math.max(0, current - (previous ?? 0));
+}
+function applyReleaseBaseline(report, input) {
+  if (input.mode === "all") return report;
+  const sourceErrors = input.error ? [{ source: "baseline", message: input.error.slice(0, 500) }] : [];
+  const snapshot = input.snapshot;
+  if (!snapshot) {
+    return {
+      ...report,
+      source_errors: [...report.source_errors, ...sourceErrors].slice(0, 32),
+      baseline: {
+        mode: "new_only",
+        ref: input.ref,
+        available: false,
+        matched_findings: 0,
+        new_findings: report.findings.length,
+        matched_incidents: 0,
+        new_incidents: report.incidents.length,
+        checks_delta: {
+          failure: report.checks.failure,
+          pending: report.checks.pending,
+          required_failed: report.checks.required_failed
+        },
+        new_risk: report.risk,
+        source_errors: sourceErrors
+      }
+    };
+  }
+  const knownFindings = new Set((snapshot.findings ?? []).map(findingKey));
+  const knownIncidents = new Set((snapshot.incidents ?? []).map(incidentKey));
+  const newFindings = report.findings.filter((finding) => !knownFindings.has(findingKey(finding)));
+  const newIncidents = report.incidents.filter((incident) => !knownIncidents.has(incidentKey(incident)));
+  const checksDelta = {
+    failure: delta(report.checks.failure, snapshot.checks?.failure),
+    pending: delta(report.checks.pending, snapshot.checks?.pending),
+    required_failed: delta(report.checks.required_failed, snapshot.checks?.required_failed)
+  };
+  const newRisk = {
+    ...report.risk,
+    critical_vulns: newFindings.filter((finding) => finding.severity === "critical").length,
+    high_vulns: newFindings.filter((finding) => finding.severity === "high").length,
+    failed_checks: checksDelta.failure + checksDelta.required_failed,
+    pending_checks: checksDelta.pending,
+    open_sev1: newIncidents.filter((incident) => incident.status === "open" && incident.severity === "sev1").length,
+    open_incidents: newIncidents.filter((incident) => incident.status === "open").length,
+    recent_incidents: newIncidents.filter(
+      (incident) => incident.status === "mitigated" || incident.status === "resolved"
+    ).length
+  };
+  return {
+    ...report,
+    baseline: {
+      mode: "new_only",
+      ref: input.ref,
+      available: true,
+      matched_findings: report.findings.length - newFindings.length,
+      new_findings: newFindings.length,
+      matched_incidents: report.incidents.length - newIncidents.length,
+      new_incidents: newIncidents.length,
+      checks_delta: checksDelta,
+      new_risk: newRisk,
+      source_errors: sourceErrors
+    }
+  };
 }
 
 // src/collectors/load.ts
@@ -36853,12 +37153,19 @@ async function loadReleaseReport(input) {
   errors.push(...signals.errors);
   const changelogResult = loadChangelog(input.workspace, input.changelogPath);
   errors.push(...changelogResult.errors);
-  const findingsResult = loadFindings(input.workspace, input.findingsPath, input.sarifPath);
+  const findingsResult = loadFindings(input.workspace, input.findingsPath, input.sarifPath, input.findingsJson);
   errors.push(...findingsResult.errors);
   const incidentsResult = loadIncidents(input.workspace, input.incidentsPath);
   errors.push(...incidentsResult.errors);
-  const metricsResult = loadMetrics(input.workspace, input.metricsPath);
+  const metricsResult = loadMetrics(input.workspace, input.metricsPath, input.metricsJson);
   errors.push(...metricsResult.errors);
+  const sibling = parseSiblingSignals({
+    sentinelDecision: input.sentinelDecision,
+    sentinelFindings: input.sentinelFindings,
+    costDecision: input.costDecision,
+    costMetrics: input.costMetrics
+  });
+  errors.push(...sibling.errors);
   let commits = [...signals.commits];
   let prs = [...signals.prs];
   let checks = mergeCheckSummaries(emptyChecks(), signals.checks);
@@ -36923,7 +37230,7 @@ async function loadReleaseReport(input) {
     [...signals.incidents, ...incidentsResult.incidents],
     input.incidentLabels ?? []
   );
-  return buildReleaseRiskReport({
+  const report = buildReleaseRiskReport({
     target_ref: input.targetRef,
     base_ref: input.baseRef,
     environment: input.environment,
@@ -36932,12 +37239,232 @@ async function loadReleaseReport(input) {
     checks,
     deployments,
     changelog,
-    findings: [...signals.findings, ...findingsResult.findings],
+    findings: [...signals.findings, ...findingsResult.findings, ...sibling.findings],
     incidents,
-    metrics: [...signals.metrics, ...metricsResult.metrics],
+    metrics: [...signals.metrics, ...metricsResult.metrics, ...sibling.metrics],
+    upstream_decisions: sibling.decisions,
     source_errors: errors,
     breakingHint: signals.breakingChange
   });
+  const baselineMode = input.baselineMode ?? "all";
+  if (baselineMode === "all") return report;
+  let baseline = {
+    mode: baselineMode,
+    ref: input.baselinePath ?? input.baselineRef ?? null,
+    snapshot: input.baselineSnapshot,
+    error: input.baselineError ?? (input.baselinePath || input.baselineSnapshot ? void 0 : "baseline_mode=new_only requires a baseline")
+  };
+  if (input.baselinePath) {
+    const text2 = readWorkspaceText(input.workspace, input.baselinePath);
+    if (text2 == null) {
+      baseline.error = `Baseline file not found: ${sanitizeText(input.baselinePath, 200)}`;
+    } else {
+      try {
+        baseline.snapshot = parseBaselineSnapshot(parseJsonOrYaml(text2));
+      } catch (error) {
+        baseline.error = sanitizeText(error instanceof Error ? error.message : String(error), 500);
+      }
+    }
+  }
+  return applyReleaseBaseline(report, baseline);
+}
+
+// src/collectors/config.ts
+var FileConfigSchema = external_exports.object({
+  target_ref: external_exports.string().min(1).optional(),
+  base_ref: external_exports.string().min(1).optional(),
+  signals: external_exports.string().optional(),
+  signals_path: external_exports.string().optional(),
+  changelog_path: external_exports.string().optional(),
+  findings_path: external_exports.string().optional(),
+  findings: external_exports.string().optional(),
+  sarif_path: external_exports.string().optional(),
+  incidents_path: external_exports.string().optional(),
+  metrics_path: external_exports.string().optional(),
+  metrics: external_exports.string().optional(),
+  baseline_path: external_exports.string().optional(),
+  baseline_mode: external_exports.enum(["all", "new_only"]).optional(),
+  sentinel_decision: external_exports.string().optional(),
+  sentinel_findings: external_exports.string().optional(),
+  cost_decision: external_exports.string().optional(),
+  cost_metrics: external_exports.string().optional(),
+  fetch_github_compare: external_exports.boolean().optional(),
+  fetch_checks: external_exports.boolean().optional(),
+  fetch_deployments: external_exports.boolean().optional(),
+  incident_labels: external_exports.union([external_exports.string(), external_exports.array(external_exports.string())]).optional(),
+  environment: external_exports.enum(ENVIRONMENTS).optional(),
+  min_confidence: external_exports.number().min(0).max(1).optional(),
+  low_confidence_policy: external_exports.enum(LOW_CONFIDENCE_POLICIES).optional(),
+  review_mode: external_exports.enum(REVIEW_MODES).optional(),
+  fail_on_warn: external_exports.boolean().optional(),
+  source_error_policy: external_exports.enum(SOURCE_ERROR_POLICIES).optional(),
+  jev_provider: external_exports.enum(JEV_PROVIDERS).optional(),
+  jev_endpoint: external_exports.string().optional(),
+  jev_model: external_exports.string().optional(),
+  timeout_ms: external_exports.number().int().positive().max(12e4).optional(),
+  max_items_to_jev: external_exports.number().int().positive().max(200).optional(),
+  comment_on_github: external_exports.boolean().optional(),
+  create_check_run: external_exports.boolean().optional(),
+  write_report_artifact: external_exports.boolean().optional(),
+  request_reviewers: external_exports.string().optional(),
+  structured_logs: external_exports.boolean().optional(),
+  dry_run: external_exports.boolean().optional()
+}).strict();
+var defaults = {
+  baseRef: null,
+  baselineMode: "all",
+  fetchGithubCompare: true,
+  fetchChecks: true,
+  fetchDeployments: false,
+  incidentLabels: ["incident", "sev1", "sev2"],
+  environment: "production",
+  minConfidence: 0.75,
+  lowConfidencePolicy: "fail",
+  reviewMode: "fail",
+  failOnWarn: false,
+  sourceErrorPolicy: "fail",
+  jevProvider: "vercel-ai-gateway",
+  timeoutMs: 45e3,
+  maxItemsToJev: 40,
+  commentOnGithub: false,
+  createCheckRun: true,
+  writeReportArtifact: false,
+  structuredLogs: false,
+  dryRun: false
+};
+function inputValue(inputs, key) {
+  const value = inputs[key];
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function stringOption(inputs, key, configured) {
+  return inputValue(inputs, key) ?? (configured?.trim() || void 0);
+}
+function boolOption(inputs, key, configured, fallback) {
+  const raw = inputValue(inputs, key);
+  if (raw !== void 0) {
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    throw new Error(`Invalid boolean input ${key}: ${raw}`);
+  }
+  return configured ?? fallback;
+}
+function numberOption(inputs, key, configured, fallback) {
+  const raw = inputValue(inputs, key);
+  if (raw === void 0) return configured ?? fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) throw new Error(`Invalid numeric input ${key}: ${raw}`);
+  return value;
+}
+function enumOption(inputs, key, configured, fallback, allowed) {
+  const value = inputValue(inputs, key) ?? configured ?? fallback;
+  if (!allowed.includes(value)) throw new Error(`Invalid ${key}: ${value}`);
+  return value;
+}
+function labelsOption(inputs, configured) {
+  const raw = inputValue(inputs, "incident_labels");
+  const value = raw ?? configured ?? defaults.incidentLabels;
+  return (Array.isArray(value) ? value : value.split(/[\s,\n]+/)).map((label) => label.trim()).filter(Boolean).slice(0, 32);
+}
+function loadFileConfig(workspace, relativePath = ".jev/config.yml") {
+  const text2 = readWorkspaceText(workspace, relativePath);
+  if (text2 == null) return {};
+  try {
+    const raw = parseJsonOrYaml(text2);
+    return FileConfigSchema.parse(raw ?? {});
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid ${relativePath}: ${message.slice(0, 800)}`);
+  }
+}
+function resolveOracleConfig(inputs, fileConfig) {
+  return {
+    targetRef: stringOption(inputs, "target_ref", fileConfig.target_ref),
+    baseRef: stringOption(inputs, "base_ref", fileConfig.base_ref) ?? null,
+    signalsJson: stringOption(inputs, "signals", fileConfig.signals),
+    signalsPath: stringOption(inputs, "signals_path", fileConfig.signals_path),
+    changelogPath: stringOption(inputs, "changelog_path", fileConfig.changelog_path),
+    findingsPath: stringOption(inputs, "findings_path", fileConfig.findings_path),
+    findingsJson: stringOption(inputs, "findings", fileConfig.findings),
+    sarifPath: stringOption(inputs, "sarif_path", fileConfig.sarif_path),
+    incidentsPath: stringOption(inputs, "incidents_path", fileConfig.incidents_path),
+    metricsPath: stringOption(inputs, "metrics_path", fileConfig.metrics_path),
+    metricsJson: stringOption(inputs, "metrics", fileConfig.metrics),
+    baselinePath: stringOption(inputs, "baseline_path", fileConfig.baseline_path),
+    baselineMode: enumOption(inputs, "baseline_mode", fileConfig.baseline_mode, "all", ["all", "new_only"]),
+    sentinelDecision: stringOption(inputs, "sentinel_decision", fileConfig.sentinel_decision),
+    sentinelFindings: stringOption(inputs, "sentinel_findings", fileConfig.sentinel_findings),
+    costDecision: stringOption(inputs, "cost_decision", fileConfig.cost_decision),
+    costMetrics: stringOption(inputs, "cost_metrics", fileConfig.cost_metrics),
+    fetchGithubCompare: boolOption(inputs, "fetch_github_compare", fileConfig.fetch_github_compare, defaults.fetchGithubCompare),
+    fetchChecks: boolOption(inputs, "fetch_checks", fileConfig.fetch_checks, defaults.fetchChecks),
+    fetchDeployments: boolOption(inputs, "fetch_deployments", fileConfig.fetch_deployments, defaults.fetchDeployments),
+    incidentLabels: labelsOption(inputs, fileConfig.incident_labels),
+    environment: enumOption(inputs, "environment", fileConfig.environment, defaults.environment, ENVIRONMENTS),
+    minConfidence: numberOption(inputs, "min_confidence", fileConfig.min_confidence, defaults.minConfidence),
+    lowConfidencePolicy: enumOption(inputs, "low_confidence_policy", fileConfig.low_confidence_policy, defaults.lowConfidencePolicy, LOW_CONFIDENCE_POLICIES),
+    reviewMode: enumOption(inputs, "review_mode", fileConfig.review_mode, defaults.reviewMode, REVIEW_MODES),
+    failOnWarn: boolOption(inputs, "fail_on_warn", fileConfig.fail_on_warn, defaults.failOnWarn),
+    sourceErrorPolicy: enumOption(inputs, "source_error_policy", fileConfig.source_error_policy, defaults.sourceErrorPolicy, SOURCE_ERROR_POLICIES),
+    jevProvider: enumOption(inputs, "jev_provider", fileConfig.jev_provider, defaults.jevProvider, JEV_PROVIDERS),
+    jevEndpoint: stringOption(inputs, "jev_endpoint", fileConfig.jev_endpoint),
+    jevModel: stringOption(inputs, "jev_model", fileConfig.jev_model),
+    timeoutMs: numberOption(inputs, "timeout_ms", fileConfig.timeout_ms, defaults.timeoutMs),
+    maxItemsToJev: numberOption(inputs, "max_items_to_jev", fileConfig.max_items_to_jev, defaults.maxItemsToJev),
+    commentOnGithub: boolOption(inputs, "comment_on_github", fileConfig.comment_on_github, defaults.commentOnGithub),
+    createCheckRun: boolOption(inputs, "create_check_run", fileConfig.create_check_run, defaults.createCheckRun),
+    writeReportArtifact: boolOption(inputs, "write_report_artifact", fileConfig.write_report_artifact, defaults.writeReportArtifact),
+    requestReviewers: stringOption(inputs, "request_reviewers", fileConfig.request_reviewers),
+    structuredLogs: boolOption(inputs, "structured_logs", fileConfig.structured_logs, defaults.structuredLogs),
+    dryRun: boolOption(inputs, "dry_run", fileConfig.dry_run, defaults.dryRun)
+  };
+}
+function validateOracleConfig(config2) {
+  if (config2.minConfidence < 0 || config2.minConfidence > 1) {
+    throw new Error(`Invalid min_confidence: ${config2.minConfidence}`);
+  }
+  if (!Number.isInteger(config2.timeoutMs) || config2.timeoutMs <= 0 || config2.timeoutMs > 12e4) {
+    throw new Error(`Invalid timeout_ms: ${config2.timeoutMs}`);
+  }
+  if (!Number.isInteger(config2.maxItemsToJev) || config2.maxItemsToJev <= 0 || config2.maxItemsToJev > 200) {
+    throw new Error(`Invalid max_items_to_jev: ${config2.maxItemsToJev}`);
+  }
+  if (config2.jevProvider === "custom-compatible" && (!config2.jevEndpoint || !config2.jevModel)) {
+    throw new Error("custom-compatible requires jev_endpoint and jev_model");
+  }
+  if (config2.jevProvider === "typesafe-native" && (!config2.jevEndpoint || !config2.jevModel)) {
+    throw new Error("typesafe-native requires jev_endpoint and jev_model");
+  }
+  if (config2.fetchGithubCompare && !config2.baseRef) {
+    throw new Error("fetch_github_compare=true requires base_ref");
+  }
+}
+
+// src/collectors/github-baseline.ts
+async function fetchPreviousReleaseBaseline(input) {
+  try {
+    const releases = await input.client.listReleases(input.owner, input.repo);
+    const target = input.targetRef.replace(/^refs\/tags\//, "");
+    const previous = releases.find(
+      (release) => !release.draft && !release.prerelease && release.tag_name !== target
+    );
+    if (!previous) return { ref: null, error: "No previous release is available for a baseline report" };
+    const encoded = await input.client.getFileAtRef(
+      input.owner,
+      input.repo,
+      input.reportPath,
+      previous.tag_name
+    );
+    if (!encoded) {
+      return { ref: previous.tag_name, error: `Previous release baseline report not found at ${input.reportPath}` };
+    }
+    const raw = Buffer.from(encoded, "base64").toString("utf8");
+    return { ref: previous.tag_name, snapshot: parseBaselineSnapshot(parseJsonOrYaml(raw)) };
+  } catch (error) {
+    return {
+      ref: null,
+      error: sanitizeText(`Unable to load previous release baseline: ${error instanceof Error ? error.message : String(error)}`, 500)
+    };
+  }
 }
 
 // src/github/outputs.ts
@@ -36992,33 +37519,40 @@ function writeDecisionOutputs(writer, decision, actionStatus, extras) {
   writer.setOutput("confidence", String(decision.confidence));
   writer.setOutput("reason_codes", JSON.stringify(decision.reason_codes));
   writer.setOutput("risk_summary", JSON.stringify(decision.risk_summary));
+  writer.setOutput("baseline_summary", JSON.stringify(decision.baseline_summary));
   writer.setOutput("recommended_checks", JSON.stringify(decision.recommended_checks));
   writer.setOutput("held", String(decision.held));
   writer.setOutput("provisional", String(decision.provisional));
   writer.setOutput("jev_status", decision.jev_status);
+  writer.setOutput("jev_error_code", decision.jev_error_code ?? "");
   writer.setOutput("jev_proposed", decision.jev_proposed ?? "");
   writer.setOutput("policy_floor", decision.policy_floor);
   writer.setOutput("summary", decision.summary);
   writer.setOutput("check_status", extras?.checkStatus ?? "skipped");
   writer.setOutput("report_markdown_file", extras?.reportMarkdownFile ?? "");
   writer.setOutput("report_json_file", extras?.reportJsonFile ?? "");
+  const explanation = decision.jev_error_code ? `Jev ${decision.jev_status} (${decision.jev_error_code}): ${decision.explanation || decision.summary}` : decision.explanation || decision.summary;
   if (actionStatus === "fail") {
-    writer.setFailed(formatActionMessage(`${decision.decision}: ${decision.explanation || decision.summary}`));
+    writer.setFailed(formatActionMessage(`${decision.decision}: ${explanation}`));
   } else if (actionStatus === "warn") {
-    writer.warning(formatActionMessage(decision.explanation || "Release oracle warning"));
+    writer.warning(formatActionMessage(explanation || "Release oracle warning"));
   } else if (actionStatus === "request-review") {
     writer.warning(formatActionMessage("Release oracle requires human review"));
   } else {
-    writer.info(formatActionMessage(decision.explanation || decision.decision));
+    writer.info(
+      formatActionMessage(
+        decision.jev_error_code ? `Jev ${decision.jev_status} (${decision.jev_error_code}): ${decision.explanation || decision.summary}` : explanation || decision.decision
+      )
+    );
   }
 }
-function writeReportArtifacts(workspace, decision) {
+function writeReportArtifacts(workspace, decision, report) {
   const dir = (0, import_node_path2.join)(workspace, ".jev");
   (0, import_node_fs2.mkdirSync)(dir, { recursive: true });
   const markdownPath = (0, import_node_path2.join)(dir, "release-oracle-report.md");
   const jsonPath = (0, import_node_path2.join)(dir, "release-oracle-report.json");
   (0, import_node_fs2.writeFileSync)(markdownPath, renderSummaryMarkdown(decision));
-  (0, import_node_fs2.writeFileSync)(jsonPath, JSON.stringify(decision, null, 2));
+  (0, import_node_fs2.writeFileSync)(jsonPath, JSON.stringify(report ? { ...decision, ...report } : decision, null, 2));
   return { markdownPath, jsonPath };
 }
 
@@ -37026,9 +37560,13 @@ function writeReportArtifacts(workspace, decision) {
 function stricter(left, right) {
   return DECISION_RANK[left] >= DECISION_RANK[right] ? left : right;
 }
+function effectiveRisk(report) {
+  return report.baseline.mode === "new_only" && report.baseline.available ? report.baseline.new_risk : report.risk;
+}
 function floorDecision(report) {
   let floor = "proceed";
-  const { risk, deployments, changelog } = report;
+  const risk = effectiveRisk(report);
+  const { deployments, changelog } = report;
   if (risk.critical_vulns > 0 || risk.open_sev1 > 0 || risk.failed_checks > 0 || deployments.failure > 0 || deployments.latest_state === "failure" || deployments.latest_state === "error") {
     floor = stricter(floor, "hold");
   }
@@ -37043,6 +37581,9 @@ function floorDecision(report) {
     } else {
       floor = stricter(floor, "warn");
     }
+  }
+  for (const upstream of report.upstream_decisions) {
+    floor = stricter(floor, upstream.decision);
   }
   return floor;
 }
@@ -37073,26 +37614,28 @@ function recommendChecks(report, decision) {
 function buildReasons(input) {
   const codes = [];
   const { report, floor } = input;
+  const risk = effectiveRisk(report);
   const hasSignals = report.commits.length > 0 || report.findings.length > 0 || report.incidents.length > 0 || report.metrics.length > 0 || report.checks.total > 0 || report.deployments.total > 0 || report.changelog.present;
   if (!hasSignals) pushCode(codes, "NO_SIGNALS");
   if (report.checks.total > 0 && report.checks.failure === 0 && report.checks.pending === 0) {
     pushCode(codes, "ALL_CHECKS_GREEN");
   }
-  if (report.risk.failed_checks > 0 || report.checks.failure > 0) pushCode(codes, "TESTS_FAILED");
-  if (report.risk.pending_checks > 0 || report.checks.pending > 0) pushCode(codes, "CHECKS_PENDING");
-  if (report.risk.critical_vulns > 0) pushCode(codes, "CRITICAL_VULN");
-  if (report.risk.high_vulns > 0) pushCode(codes, "HIGH_VULN");
-  if (report.risk.breaking_commits > 0 || report.changelog.breaking_mentioned) {
+  if (risk.failed_checks > 0 || report.checks.failure > 0) pushCode(codes, "TESTS_FAILED");
+  if (risk.pending_checks > 0 || report.checks.pending > 0) pushCode(codes, "CHECKS_PENDING");
+  if (risk.critical_vulns > 0) pushCode(codes, "CRITICAL_VULN");
+  if (risk.high_vulns > 0) pushCode(codes, "HIGH_VULN");
+  if (risk.breaking_commits > 0 || report.changelog.breaking_mentioned) {
     pushCode(codes, "BREAKING_CHANGE");
   }
-  if (report.risk.breaking_commits > 0 && !report.changelog.present) {
+  if (risk.breaking_commits > 0 && !report.changelog.present) {
     pushCode(codes, "CHANGELOG_MISSING");
+    pushCode(codes, "BREAKING_CHANGE_UNDOCUMENTED");
   } else if (report.changelog.present) {
     pushCode(codes, "CHANGELOG_OK");
   }
-  if (report.risk.open_sev1 > 0 || report.risk.open_incidents > 0) pushCode(codes, "OPEN_INCIDENT");
-  if (report.risk.recent_incidents > 0) pushCode(codes, "RECENT_INCIDENT");
-  if (report.risk.slo_breaches > 0) pushCode(codes, "SLO_BREACH");
+  if (risk.open_sev1 > 0 || risk.open_incidents > 0) pushCode(codes, "OPEN_INCIDENT");
+  if (risk.recent_incidents > 0) pushCode(codes, "RECENT_INCIDENT");
+  if (risk.slo_breaches > 0) pushCode(codes, "SLO_BREACH");
   else if (report.metrics.length > 0) pushCode(codes, "METRICS_OK");
   if (isLargeChangeset(report)) pushCode(codes, "LARGE_CHANGESET");
   if (report.deployments.failure > 0 || report.deployments.latest_state === "failure") {
@@ -37100,6 +37643,17 @@ function buildReasons(input) {
   }
   if (report.deployments.pending > 0 || report.deployments.latest_state === "pending") {
     pushCode(codes, "DEPLOY_PENDING");
+  }
+  if (report.upstream_decisions.some((item) => item.decision === "warn")) pushCode(codes, "UPSTREAM_GATE_WARN");
+  if (report.upstream_decisions.some((item) => item.decision === "review")) pushCode(codes, "UPSTREAM_GATE_REVIEW");
+  if (report.upstream_decisions.some((item) => item.decision === "hold")) pushCode(codes, "UPSTREAM_GATE_HOLD");
+  if (report.baseline.mode === "new_only") {
+    pushCode(codes, "BASELINE_APPLIED");
+    if (report.baseline.new_findings > 0) pushCode(codes, "NEW_FINDINGS");
+    if (report.baseline.checks_delta.failure > 0 || report.baseline.checks_delta.required_failed > 0) {
+      pushCode(codes, "NEW_CHECK_FAILURES");
+    }
+    if (report.baseline.new_incidents > 0) pushCode(codes, "NEW_INCIDENTS");
   }
   if (floor === "hold") pushCode(codes, "POLICY_FLOOR_HOLD");
   if (floor === "warn") pushCode(codes, "POLICY_FLOOR_WARN");
@@ -37173,17 +37727,19 @@ function applyOraclePolicy(input) {
     lowConfidence
   });
   const recommended = recommendChecks(input.report, decision);
-  const record2 = OracleDecisionSchema.parse({
+  const record3 = OracleDecisionSchema.parse({
     decision,
     confidence,
     reason_codes: reasonCodes,
     risk_summary: input.report.risk,
+    baseline_summary: input.report.baseline,
     recommended_checks: recommended,
     summary: buildSummary(decision, input.report, confidence),
     explanation: explanation || sanitizeText(`Release oracle decided ${decision} with floor ${floor}.`, 2e3),
     provisional,
     jev_status: input.jev.status,
     jev_proposed: input.jev.status === "evaluated" ? proposed : null,
+    jev_error_code: input.jev.status === "evaluated" ? null : input.jev.error_code ?? null,
     policy_floor: floor,
     held: decision === "hold",
     environment: input.report.environment,
@@ -37192,16 +37748,16 @@ function applyOraclePolicy(input) {
   });
   const jevFailedClosed = (input.jev.status !== "evaluated" || lowConfidence) && input.lowConfidencePolicy === "fail";
   let status = "ok";
-  if (record2.decision === "hold" || jevFailedClosed) status = "fail";
-  else if (record2.decision === "review") {
+  if (record3.decision === "hold" || jevFailedClosed) status = "fail";
+  else if (record3.decision === "review") {
     status = input.reviewMode === "fail" ? "fail" : "request-review";
-  } else if (record2.decision === "warn" || input.report.source_errors.length && input.sourceErrorPolicy === "warn") {
+  } else if (record3.decision === "warn" || input.report.source_errors.length && input.sourceErrorPolicy === "warn") {
     status = input.failOnWarn ? "fail" : "warn";
   } else if (input.jev.status !== "evaluated" && input.lowConfidencePolicy === "no-op") {
     status = "no-op";
   }
-  const message = status === "fail" ? record2.decision === "hold" ? `Release held (${record2.reason_codes.slice(0, 6).join(", ")})` : record2.explanation || "Release oracle requires attention" : record2.explanation || record2.decision;
-  return { decision: record2, status, message };
+  const message = status === "fail" ? record3.decision === "hold" ? `Release held (${record3.reason_codes.slice(0, 6).join(", ")})` : record3.explanation || "Release oracle requires attention" : record3.explanation || record3.decision;
+  return { decision: record3, status, message };
 }
 
 // src/executors/comment.ts
@@ -37241,13 +37797,16 @@ async function maybeCreateCheckRun(enabled, dryRun, headSha, decision, actionSta
   if (!enabled) return "skipped";
   if (!headSha) return "skipped";
   if (dryRun || !client) return "dry-run";
-  await client.createCheckRun({
+  const input = {
     name: "JEV Release Oracle",
     headSha,
     conclusion: checkConclusion(actionStatus),
     title: `${decision.decision} \xB7 floor ${decision.policy_floor}`,
     summary: renderSummaryMarkdown(decision)
-  });
+  };
+  const existing = client.findExistingCheckRun ? await client.findExistingCheckRun({ name: input.name, headSha }) : null;
+  if (existing && client.updateCheckRun) await client.updateCheckRun(existing.id, input);
+  else await client.createCheckRun(input);
   return "created";
 }
 
@@ -37332,11 +37891,12 @@ function clampConfidence(value) {
 function interpretEvaluation(body) {
   const selected = body.answers?.release_decision;
   if (!selected || selected.type !== "choice" || typeof selected.choice !== "string") {
-    return { status: "schema_rejected", message: "SCHEMA_REJECTED: missing release_decision choice" };
+    return { status: "schema_rejected", error_code: "schema_rejected", message: "SCHEMA_REJECTED: missing release_decision choice" };
   }
   if (!DECISIONS.includes(selected.choice)) {
     return {
       status: "schema_rejected",
+      error_code: "schema_rejected",
       message: `SCHEMA_REJECTED: release_decision ${selected.choice} is not allowed`
     };
   }
@@ -37354,8 +37914,20 @@ function interpretEvaluation(body) {
     abstain: (abstainProbability ?? 0) >= 0.55
   };
 }
-function unavailable(message) {
-  return { status: "unavailable", message: message.slice(0, 500) };
+function unavailable(message, errorCode = "provider_error") {
+  return { status: "unavailable", error_code: errorCode, message: sanitizeText(message, 500) };
+}
+function schemaRejected(message) {
+  return { status: "schema_rejected", error_code: "schema_rejected", message: sanitizeText(message, 500) };
+}
+function classifyProviderError(error) {
+  const name25 = error instanceof Error ? error.name : "";
+  const message = error instanceof Error ? error.message : String(error);
+  if (name25 === "AbortError" || name25 === "TimeoutError" || /timeout|timed out/i.test(message)) return "timeout";
+  if (/\b401\b|unauthori[sz]ed/i.test(message)) return "unauthorized";
+  if (/\b429\b|rate.?limit/i.test(message)) return "rate_limited";
+  if (/\b\d{3}\b/.test(message)) return "http_error";
+  return "network_error";
 }
 
 // src/jev/http-evaluate.ts
@@ -37375,11 +37947,20 @@ async function postEvaluate(options) {
       redirect: "error",
       signal: AbortSignal.timeout(options.timeoutMs)
     });
-    if (!response.ok) return unavailable(`${options.providerLabel} HTTP ${response.status}`);
-    return interpretEvaluation(await response.json());
+    if (!response.ok) {
+      const errorCode = response.status === 401 || response.status === 403 ? "unauthorized" : response.status === 429 ? "rate_limited" : "http_error";
+      return unavailable(`${options.providerLabel} HTTP ${response.status}`, errorCode);
+    }
+    let body;
+    try {
+      body = await response.json();
+    } catch {
+      return schemaRejected(`${options.providerLabel} schema rejected: response was not valid JSON`);
+    }
+    return interpretEvaluation(body);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return unavailable(`${options.providerLabel} error: ${message}`);
+    return unavailable(`${options.providerLabel} error: ${message}`, classifyProviderError(error));
   }
 }
 
@@ -37389,12 +37970,12 @@ function createCustomCompatibleProvider(options) {
   return {
     id: "custom-compatible",
     async evaluateRelease(state) {
-      if (!options.apiKey) return unavailable("JEV_CUSTOM_API_KEY is required for custom-compatible");
-      if (!options.endpoint) return unavailable("jev_endpoint is required for custom-compatible");
+      if (!options.apiKey) return unavailable("JEV_CUSTOM_API_KEY is required for custom-compatible", "secret_missing");
+      if (!options.endpoint) return unavailable("jev_endpoint is required for custom-compatible", "configuration");
       if (!options.endpoint.startsWith("https://")) {
-        return unavailable("jev_endpoint must be HTTPS for custom-compatible");
+        return unavailable("jev_endpoint must be HTTPS for custom-compatible", "configuration");
       }
-      if (!options.model) return unavailable("jev_model is required for custom-compatible");
+      if (!options.model) return unavailable("jev_model is required for custom-compatible", "configuration");
       return postEvaluate({
         endpoint: options.endpoint,
         apiKey: options.apiKey,
@@ -37416,12 +37997,12 @@ function createTypesafeNativeProvider(options) {
   return {
     id: "typesafe-native",
     async evaluateRelease(state) {
-      if (!options.apiKey) return unavailable("TYPESAFE_API_KEY is required for typesafe-native");
+      if (!options.apiKey) return unavailable("TYPESAFE_API_KEY is required for typesafe-native", "secret_missing");
       if (!options.model) {
-        return unavailable("jev_model is required for typesafe-native (pin a catalog model id)");
+        return unavailable("jev_model is required for typesafe-native (pin a catalog model id)", "configuration");
       }
       if (!endpoint.startsWith("https://")) {
-        return unavailable("typesafe-native endpoint must be HTTPS");
+        return unavailable("typesafe-native endpoint must be HTTPS", "configuration");
       }
       return postEvaluate({
         endpoint,
@@ -41972,7 +42553,7 @@ var ZodRecord2 = /* @__PURE__ */ $constructor("ZodRecord", (inst, def) => {
   inst.keyType = def.keyType;
   inst.valueType = def.valueType;
 });
-function record(keyType, valueType, params) {
+function record2(keyType, valueType, params) {
   return new ZodRecord2({
     type: "record",
     keyType,
@@ -42461,9 +43042,9 @@ function combineHeaders(...headers) {
     {}
   );
 }
-function removeUndefinedEntries(record2) {
+function removeUndefinedEntries(record3) {
   return Object.fromEntries(
-    Object.entries(record2).filter(([_key, value]) => value != null)
+    Object.entries(record3).filter(([_key, value]) => value != null)
   );
 }
 async function delay(delayInMs, options) {
@@ -45427,7 +46008,7 @@ var z = {
   literal,
   number: number2,
   object,
-  record,
+  record: record2,
   string: string2,
   union,
   unknown
@@ -49757,7 +50338,7 @@ var z2 = {
   null: _null3,
   number: number2,
   object,
-  record,
+  record: record2,
   string: string2,
   union,
   unknown
@@ -52179,7 +52760,7 @@ function createVercelAiGatewayProvider(options) {
   return {
     id: "vercel-ai-gateway",
     async evaluateRelease(state) {
-      if (!options.apiKey) return unavailable("AI_GATEWAY_API_KEY is required for vercel-ai-gateway");
+      if (!options.apiKey) return unavailable("AI_GATEWAY_API_KEY is required for vercel-ai-gateway", "secret_missing");
       try {
         const body = await evaluateImpl({
           modelId: options.model ?? "typesafe-ai/jev",
@@ -52190,7 +52771,7 @@ function createVercelAiGatewayProvider(options) {
         return interpretEvaluation(body);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return unavailable(`vercel-ai-gateway error: ${message}`);
+        return unavailable(`vercel-ai-gateway error: ${message}`, classifyProviderError(error));
       }
     }
   };
@@ -52282,7 +52863,7 @@ async function runOracle(params) {
   let reportMarkdownFile = null;
   let reportJsonFile = null;
   if (options.write_report_artifact && params.workspace && !options.dry_run) {
-    const written = writeReportArtifacts(params.workspace, outcome.decision);
+    const written = writeReportArtifacts(params.workspace, outcome.decision, params.report);
     reportMarkdownFile = written.markdownPath;
     reportJsonFile = written.jsonPath;
   }
@@ -52294,6 +52875,7 @@ async function runOracle(params) {
         confidence: outcome.decision.confidence,
         provisional: outcome.decision.provisional,
         jev_status: outcome.decision.jev_status,
+        jev_error_code: outcome.decision.jev_error_code ?? null,
         policy_floor: outcome.decision.policy_floor,
         held: outcome.decision.held,
         reason_codes: outcome.decision.reason_codes
@@ -52314,16 +52896,48 @@ async function runOracle(params) {
 
 // src/index.ts
 var LOG = "[JEV Release Oracle]";
-function optionalBoolean(name25, fallback) {
-  const raw = core.getInput(name25);
-  if (!raw) return fallback;
-  return raw.toLowerCase() === "true";
-}
-function pickEnum(value, allowed, label, fallback) {
-  const raw = value?.trim();
-  if (!raw) return fallback;
-  if (allowed.includes(raw)) return raw;
-  throw new Error(`${LOG} Invalid ${label}: ${raw}`);
+var CONFIG_INPUTS = [
+  "target_ref",
+  "base_ref",
+  "signals",
+  "signals_path",
+  "changelog_path",
+  "findings_path",
+  "findings",
+  "sarif_path",
+  "incidents_path",
+  "metrics_path",
+  "metrics",
+  "baseline_path",
+  "baseline_mode",
+  "sentinel_decision",
+  "sentinel_findings",
+  "cost_decision",
+  "cost_metrics",
+  "fetch_github_compare",
+  "fetch_checks",
+  "fetch_deployments",
+  "incident_labels",
+  "environment",
+  "min_confidence",
+  "low_confidence_policy",
+  "review_mode",
+  "fail_on_warn",
+  "source_error_policy",
+  "jev_provider",
+  "jev_endpoint",
+  "jev_model",
+  "timeout_ms",
+  "max_items_to_jev",
+  "comment_on_github",
+  "create_check_run",
+  "write_report_artifact",
+  "request_reviewers",
+  "structured_logs",
+  "dry_run"
+];
+function getActionInputs() {
+  return Object.fromEntries(CONFIG_INPUTS.map((name25) => [name25, core.getInput(name25) || void 0]));
 }
 function resolveApiKey(provider) {
   if (provider === "vercel-ai-gateway") return process.env.AI_GATEWAY_API_KEY || void 0;
@@ -52332,38 +52946,15 @@ function resolveApiKey(provider) {
 }
 async function main() {
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
-  const jevProvider = pickEnum(
-    core.getInput("jev_provider") || void 0,
-    JEV_PROVIDERS,
-    "jev_provider",
-    "vercel-ai-gateway"
-  );
-  const environment = pickEnum(
-    core.getInput("environment") || void 0,
-    ENVIRONMENTS,
-    "environment",
-    "production"
-  );
-  const lowConfidencePolicy = pickEnum(
-    core.getInput("low_confidence_policy") || void 0,
-    LOW_CONFIDENCE_POLICIES,
-    "low_confidence_policy",
-    "fail"
-  );
-  const reviewMode = pickEnum(
-    core.getInput("review_mode") || void 0,
-    REVIEW_MODES,
-    "review_mode",
-    "fail"
-  );
-  const sourceErrorPolicy = pickEnum(
-    core.getInput("source_error_policy") || void 0,
-    SOURCE_ERROR_POLICIES,
-    "source_error_policy",
-    "fail"
-  );
-  const targetRef = core.getInput("target_ref").trim() || github.context.payload.pull_request?.head?.sha || github.context.sha || "HEAD";
-  const baseRef = core.getInput("base_ref").trim() || null;
+  const config2 = resolveOracleConfig(getActionInputs(), loadFileConfig(workspace));
+  validateOracleConfig(config2);
+  const jevProvider = config2.jevProvider;
+  const environment = config2.environment;
+  const lowConfidencePolicy = config2.lowConfidencePolicy;
+  const reviewMode = config2.reviewMode;
+  const sourceErrorPolicy = config2.sourceErrorPolicy;
+  const targetRef = config2.targetRef || github.context.payload.pull_request?.head?.sha || github.context.sha || "HEAD";
+  const baseRef = config2.baseRef;
   const token = core.getInput("github_token") || process.env.GITHUB_TOKEN || "";
   const octokit = token ? github.getOctokit(token) : null;
   const owner = github.context.repo.owner;
@@ -52447,33 +53038,79 @@ async function main() {
       return response.data.map((status) => ({ state: status.state }));
     }
   } : null;
-  const incidentLabels = core.getInput("incident_labels").split(/[,\n]+/).map((part) => part.trim()).filter(Boolean);
+  const releaseBaselineClient = octokit ? {
+    async listReleases(o, r) {
+      return (await octokit.paginate(octokit.rest.repos.listReleases, {
+        owner: o,
+        repo: r,
+        per_page: 20
+      })).map((release) => ({
+        tag_name: release.tag_name,
+        draft: release.draft,
+        prerelease: release.prerelease
+      }));
+    },
+    async getFileAtRef(o, r, path, ref) {
+      try {
+        const response = await octokit.rest.repos.getContent({ owner: o, repo: r, path, ref });
+        if (Array.isArray(response.data) || response.data.type !== "file" || !response.data.content) return null;
+        return response.data.content.replace(/\s+/g, "");
+      } catch (error) {
+        const status = error.status;
+        if (status === 404) return null;
+        throw error;
+      }
+    }
+  } : null;
+  let autoBaseline = {
+    ref: null
+  };
+  if (config2.baselineMode === "new_only" && !config2.baselinePath) {
+    autoBaseline = releaseBaselineClient ? await fetchPreviousReleaseBaseline({
+      owner,
+      repo,
+      targetRef,
+      reportPath: ".jev/release-oracle-report.json",
+      client: releaseBaselineClient
+    }) : { ref: null, error: "new_only baseline requires a GitHub token or baseline_path" };
+  }
   const report = await loadReleaseReport({
     workspace,
     targetRef,
     baseRef,
     environment,
-    signalsJson: core.getInput("signals") || void 0,
-    signalsPath: core.getInput("signals_path") || void 0,
-    changelogPath: core.getInput("changelog_path") || void 0,
-    findingsPath: core.getInput("findings_path") || void 0,
-    sarifPath: core.getInput("sarif_path") || void 0,
-    incidentsPath: core.getInput("incidents_path") || void 0,
-    metricsPath: core.getInput("metrics_path") || void 0,
-    fetchGithubCompare: optionalBoolean("fetch_github_compare", true),
-    fetchChecks: optionalBoolean("fetch_checks", true),
-    fetchDeployments: optionalBoolean("fetch_deployments", false),
-    incidentLabels,
+    signalsJson: config2.signalsJson,
+    signalsPath: config2.signalsPath,
+    changelogPath: config2.changelogPath,
+    findingsPath: config2.findingsPath,
+    findingsJson: config2.findingsJson,
+    sarifPath: config2.sarifPath,
+    incidentsPath: config2.incidentsPath,
+    metricsPath: config2.metricsPath,
+    metricsJson: config2.metricsJson,
+    fetchGithubCompare: config2.fetchGithubCompare,
+    fetchChecks: config2.fetchChecks,
+    fetchDeployments: config2.fetchDeployments,
+    incidentLabels: config2.incidentLabels,
+    sentinelDecision: config2.sentinelDecision,
+    sentinelFindings: config2.sentinelFindings,
+    costDecision: config2.costDecision,
+    costMetrics: config2.costMetrics,
+    baselinePath: config2.baselinePath,
+    baselineMode: config2.baselineMode,
+    baselineSnapshot: autoBaseline.snapshot,
+    baselineRef: autoBaseline.ref,
+    baselineError: autoBaseline.error,
     owner,
     repo,
     compareClient,
     checksClient,
     deploymentsClient
   });
-  const commentOnGithub = optionalBoolean("comment_on_github", false);
-  const createCheckRun = optionalBoolean("create_check_run", true);
-  const writeReportArtifact = optionalBoolean("write_report_artifact", false);
-  const dryRun = optionalBoolean("dry_run", false);
+  const commentOnGithub = config2.commentOnGithub;
+  const createCheckRun = config2.createCheckRun;
+  const writeReportArtifact = config2.writeReportArtifact;
+  const dryRun = config2.dryRun;
   const issueNumber = github.context.payload.pull_request?.number ?? github.context.issue?.number;
   const commentClient = commentOnGithub && !dryRun && octokit && issueNumber ? {
     async listComments() {
@@ -52503,10 +53140,37 @@ async function main() {
     }
   } : null;
   const checkRunClient = octokit ? {
+    async findExistingCheckRun(input) {
+      const response = await octokit.rest.checks.listForRef({
+        owner,
+        repo,
+        ref: input.headSha,
+        per_page: 100
+      });
+      const existing = response.data.check_runs.find(
+        (run) => run.name === input.name && run.head_sha === input.headSha
+      );
+      return existing ? { id: existing.id } : null;
+    },
     async createCheckRun(input) {
       await octokit.rest.checks.create({
         owner,
         repo,
+        name: input.name,
+        head_sha: input.headSha,
+        status: "completed",
+        conclusion: input.conclusion,
+        output: {
+          title: input.title,
+          summary: input.summary
+        }
+      });
+    },
+    async updateCheckRun(id, input) {
+      await octokit.rest.checks.update({
+        owner,
+        repo,
+        check_run_id: id,
         name: input.name,
         head_sha: input.headSha,
         status: "completed",
@@ -52531,22 +53195,22 @@ async function main() {
   const result = await runOracle({
     report,
     workspace,
-    minConfidence: Number(core.getInput("min_confidence") || 0.75),
+    minConfidence: config2.minConfidence,
     lowConfidencePolicy,
     reviewMode,
-    failOnWarn: optionalBoolean("fail_on_warn", false),
+    failOnWarn: config2.failOnWarn,
     sourceErrorPolicy,
     jevProvider,
-    jevEndpoint: core.getInput("jev_endpoint") || void 0,
-    jevModel: core.getInput("jev_model") || void 0,
-    timeoutMs: Number(core.getInput("timeout_ms") || 45e3),
-    maxItemsToJev: Number(core.getInput("max_items_to_jev") || 40),
+    jevEndpoint: config2.jevEndpoint,
+    jevModel: config2.jevModel,
+    timeoutMs: config2.timeoutMs,
+    maxItemsToJev: config2.maxItemsToJev,
     apiKey: resolveApiKey(jevProvider),
     commentOnGithub,
     createCheckRun,
     writeReportArtifact,
-    requestReviewers: core.getInput("request_reviewers") || void 0,
-    structuredLogs: optionalBoolean("structured_logs", false),
+    requestReviewers: config2.requestReviewers,
+    structuredLogs: config2.structuredLogs,
     dryRun,
     headSha: targetRef,
     commentClient,

@@ -1,7 +1,7 @@
 import { createGateway, experimental_evaluate as evaluate } from 'ai';
 import type { JevProvider, JevProviderOptions, ReleaseEvaluationState } from './types.js';
 import { buildReleaseQuestions, summarizeState } from './questions.js';
-import { interpretEvaluation, unavailable } from './normalize.js';
+import { classifyProviderError, interpretEvaluation, unavailable } from './normalize.js';
 import type { EvaluationBody } from './types.js';
 
 export interface GatewayEvaluate {
@@ -35,7 +35,7 @@ export function createVercelAiGatewayProvider(
   return {
     id: 'vercel-ai-gateway',
     async evaluateRelease(state: ReleaseEvaluationState) {
-      if (!options.apiKey) return unavailable('AI_GATEWAY_API_KEY is required for vercel-ai-gateway');
+      if (!options.apiKey) return unavailable('AI_GATEWAY_API_KEY is required for vercel-ai-gateway', 'secret_missing');
       try {
         const body = await evaluateImpl({
           modelId: options.model ?? 'typesafe-ai/jev',
@@ -46,7 +46,7 @@ export function createVercelAiGatewayProvider(
         return interpretEvaluation(body);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return unavailable(`vercel-ai-gateway error: ${message}`);
+        return unavailable(`vercel-ai-gateway error: ${message}`, classifyProviderError(error));
       }
     },
   };

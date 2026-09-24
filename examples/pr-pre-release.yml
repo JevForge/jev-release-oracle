@@ -1,0 +1,49 @@
+name: Release Oracle (PR pre-release)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  release-candidate-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Optional: pass outputs directly from Security Sentinel and Cost Guardian.
+      # - id: sentinel
+      #   uses: JevForge/jev-security-sentinel@v0
+      # - id: cost
+      #   uses: JevForge/jev-cloud-cost-guardian@v0
+
+      - id: oracle
+        uses: JevForge/jev-release-oracle@v0
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        with:
+          target_ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          base_ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          fetch_github_compare: 'true'
+          environment: staging
+          changelog_path: CHANGELOG.md
+          create_check_run: 'true'
+          comment_on_github: 'true'
+          # sentinel_decision: ${{ steps.sentinel.outputs.decision }}
+          # findings: ${{ steps.sentinel.outputs.findings }}
+          # cost_decision: ${{ steps.cost.outputs.decision }}
+          # metrics: ${{ steps.cost.outputs.findings }}
+
+      - name: Report pre-release decision
+        if: always()
+        run: |
+          echo "decision=${{ steps.oracle.outputs.decision }}"
+          echo "floor=${{ steps.oracle.outputs.policy_floor }}"
+          echo "summary=${{ steps.oracle.outputs.summary }}"

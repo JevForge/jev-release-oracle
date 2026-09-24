@@ -84,6 +84,11 @@ export type ChangelogInfo = z.infer<typeof ChangelogInfoSchema>;
 export const FindingSchema = z
   .object({
     id: z.string().min(1).max(128),
+    fingerprint: z.string().max(128).optional(),
+    source: z.string().max(64).optional(),
+    rule_id: z.string().max(256).optional(),
+    path: z.string().max(512).optional(),
+    start_line: z.number().int().positive().optional(),
     severity: z.enum(FINDING_SEVERITIES),
     title: z.string().max(300),
     package: z.string().max(200).optional(),
@@ -100,6 +105,7 @@ export const IncidentSchema = z
     title: z.string().max(300),
     status: z.enum(['open', 'mitigated', 'resolved', 'unknown']),
     opened_at: z.string().max(64).optional(),
+    labels: z.array(z.string().max(64)).max(32).optional(),
   })
   .strict();
 
@@ -116,6 +122,15 @@ export const MetricSchema = z
   .strict();
 
 export type Metric = z.infer<typeof MetricSchema>;
+
+export const UpstreamDecisionSchema = z
+  .object({
+    source: z.string().min(1).max(64),
+    decision: z.enum(DECISIONS),
+  })
+  .strict();
+
+export type UpstreamDecision = z.infer<typeof UpstreamDecisionSchema>;
 
 export const RiskCountsSchema = z
   .object({
@@ -135,6 +150,29 @@ export const RiskCountsSchema = z
 
 export type RiskCounts = z.infer<typeof RiskCountsSchema>;
 
+export const BaselineSummarySchema = z
+  .object({
+    mode: z.enum(['all', 'new_only']),
+    ref: z.string().max(256).nullable(),
+    available: z.boolean(),
+    matched_findings: z.number().int().nonnegative(),
+    new_findings: z.number().int().nonnegative(),
+    matched_incidents: z.number().int().nonnegative(),
+    new_incidents: z.number().int().nonnegative(),
+    checks_delta: z
+      .object({
+        failure: z.number().int().nonnegative(),
+        pending: z.number().int().nonnegative(),
+        required_failed: z.number().int().nonnegative(),
+      })
+      .strict(),
+    new_risk: RiskCountsSchema,
+    source_errors: z.array(SourceErrorSchema).max(8),
+  })
+  .strict();
+
+export type BaselineSummary = z.infer<typeof BaselineSummarySchema>;
+
 export const ReleaseRiskReportSchema = z
   .object({
     target_ref: z.string().min(1).max(256),
@@ -148,6 +186,8 @@ export const ReleaseRiskReportSchema = z
     findings: z.array(FindingSchema).max(2000),
     incidents: z.array(IncidentSchema).max(200),
     metrics: z.array(MetricSchema).max(200),
+    upstream_decisions: z.array(UpstreamDecisionSchema).max(8),
+    baseline: BaselineSummarySchema,
     source_errors: z.array(SourceErrorSchema).max(32),
     risk: RiskCountsSchema,
   })
@@ -161,12 +201,14 @@ export const OracleDecisionSchema = z
     confidence: z.number().min(0).max(1),
     reason_codes: z.array(z.enum(REASON_CODES)).min(1).max(24),
     risk_summary: RiskCountsSchema,
+    baseline_summary: BaselineSummarySchema,
     recommended_checks: z.array(z.enum(RECOMMENDED_CHECKS)).max(8),
     summary: z.string().min(1).max(500),
     explanation: z.string().max(2000),
     provisional: z.boolean(),
     jev_status: z.enum(JEV_STATUSES),
     jev_proposed: z.enum(DECISIONS).nullable(),
+    jev_error_code: z.string().max(64).nullable().optional(),
     policy_floor: z.enum(DECISIONS),
     held: z.boolean(),
     environment: z.enum(ENVIRONMENTS),

@@ -137,7 +137,7 @@ export async function runOracle(params: RunOracleParams): Promise<RunOracleResul
   let reportMarkdownFile: string | null = null;
   let reportJsonFile: string | null = null;
   if (options.write_report_artifact && params.workspace && !options.dry_run) {
-    const written = writeReportArtifacts(params.workspace, outcome.decision);
+    const written = writeReportArtifacts(params.workspace, outcome.decision, params.report);
     reportMarkdownFile = written.markdownPath;
     reportJsonFile = written.jsonPath;
   }
@@ -150,6 +150,7 @@ export async function runOracle(params: RunOracleParams): Promise<RunOracleResul
         confidence: outcome.decision.confidence,
         provisional: outcome.decision.provisional,
         jev_status: outcome.decision.jev_status,
+        jev_error_code: outcome.decision.jev_error_code ?? null,
         policy_floor: outcome.decision.policy_floor,
         held: outcome.decision.held,
         reason_codes: outcome.decision.reason_codes,
