@@ -133,4 +133,39 @@ describe('runOracle', () => {
     expect(result.checkStatus).toBe('created');
     expect(result.decision.decision).toBe('warn');
   });
+
+  it('updates the existing Check Run on reruns instead of creating duplicates', async () => {
+    let updated = false;
+    const result = await runOracle({
+      report: clean,
+      minConfidence: 0.75,
+      lowConfidencePolicy: 'fail',
+      reviewMode: 'fail',
+      failOnWarn: false,
+      sourceErrorPolicy: 'warn',
+      jevProvider: 'custom-compatible',
+      timeoutMs: 1000,
+      maxItemsToJev: 40,
+      commentOnGithub: false,
+      createCheckRun: true,
+      writeReportArtifact: false,
+      structuredLogs: false,
+      dryRun: false,
+      headSha: 'deadbeef',
+      provider: provider('warn'),
+      checkRunClient: {
+        async findExistingCheckRun() {
+          return { id: 42 };
+        },
+        async createCheckRun() {
+          throw new Error('duplicate check run');
+        },
+        async updateCheckRun(id, input) {
+          updated = id === 42 && input.name === 'JEV Release Oracle';
+        },
+      },
+    });
+    expect(updated).toBe(true);
+    expect(result.checkStatus).toBe('created');
+  });
 });

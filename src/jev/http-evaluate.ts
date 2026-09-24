@@ -1,5 +1,5 @@
 import type { EvaluationBody } from './types.js';
-import { interpretEvaluation, unavailable } from './normalize.js';
+import { classifyProviderError, interpretEvaluation, schemaRejected, unavailable } from './normalize.js';
 
 export async function postEvaluate(options: {
   endpoint: string;
@@ -26,10 +26,23 @@ export async function postEvaluate(options: {
       redirect: 'error',
       signal: AbortSignal.timeout(options.timeoutMs),
     });
-    if (!response.ok) return unavailable(`${options.providerLabel} HTTP ${response.status}`);
-    return interpretEvaluation((await response.json()) as EvaluationBody);
+    if (!response.ok) {
+      const errorCode = response.status === 401 || response.status === 403
+        ? 'unauthorized'
+        : response.status === 429
+          ? 'rate_limited'
+          : 'http_error';
+      return unavailable(`${options.providerLabel} HTTP ${response.status}`, errorCode);
+    }
+    let body: EvaluationBody;
+    try {
+      body = (await response.json()) as EvaluationBody;
+    } catch {
+      return schemaRejected(`${options.providerLabel} schema rejected: response was not valid JSON`);
+    }
+    return interpretEvaluation(body);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return unavailable(`${options.providerLabel} error: ${message}`);
+    return unavailable(`${options.providerLabel} error: ${message}`, classifyProviderError(error));
   }
 }

@@ -23,6 +23,8 @@ Rank (escalate-only): `proceed` < `warn` < `review` < `hold`.
 | `recommended_checks` | Subset of the allowlist in `src/schemas/enums.ts` |
 | `held` | `true` iff `decision === 'hold'` |
 | `jev_status` | `evaluated` \| `unavailable` \| `schema_rejected` |
+| `jev_error_code` | Optional stable provider diagnostic (`secret_missing`, `unauthorized`, `rate_limited`, `timeout`, `http_error`, `network_error`, or `schema_rejected`) |
+| `baseline_summary` | Baseline mode, availability, matched/new evidence counts, and risk/check deltas |
 | `policy_floor` | Deterministic floor before Jev escalation |
 
 ## Rejected examples

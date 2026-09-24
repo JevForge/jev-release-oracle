@@ -18,3 +18,8 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 * Professional README, examples, and GitHub community templates for Marketplace readiness
+* `.jev/config.yml` is loaded as a real default layer; explicit workflow inputs win.
+* Release baselines support `new_only` deltas, including previous stable release reports.
+* Security Sentinel and Cloud Cost Guardian outputs can be passed directly to the final gate.
+* Provider diagnostics classify missing secrets, authorization, rate limits, timeouts, HTTP/network failures, and schema rejection.
+* SARIF findings preserve rule, CVE, fingerprint, path, and line metadata; Check Runs update idempotently on reruns.

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ describe('collector and util edges', () => {
     writeFileSync(
       join(root, 'data', 'findings.json'),
       JSON.stringify({
-        findings: [{ id: 'f1', severity: 'error', title: 'bad', package: 'x', cve: 'CVE-1' }],
+        findings: [{ id: 'f1', severity: 'error', title: 'bad', package: 'x', cve: 'CVE-1', rule_id: 'rule/f1', path: 'src/a.ts', start_line: 7 }],
       }),
     );
     writeFileSync(
@@ -34,6 +34,8 @@ describe('collector and util edges', () => {
                 ruleId: 'rule-1',
                 level: 'error',
                 message: { text: 'issue' },
+                properties: { cve: 'CVE-2026-1' },
+                partialFingerprints: { primaryLocationLineHash: 'fingerprint-12345678' },
               },
             ],
           },
@@ -44,7 +46,7 @@ describe('collector and util edges', () => {
       join(root, 'data', 'incidents.json'),
       JSON.stringify({
         incidents: [
-          { id: '99', severity: 'critical', title: 'sev1 outage', status: 'open' },
+          { id: '99', severity: 'critical', title: 'outage', status: 'open', labels: ['sev1'] },
           { number: 7, severity: 'sev2', title: 'degraded', status: 'mitigated' },
         ],
       }),
@@ -61,6 +63,8 @@ describe('collector and util edges', () => {
     const findings = loadFindings(root, 'data/findings.json', 'data/report.sarif');
     expect(findings.findings.length).toBeGreaterThanOrEqual(2);
     expect(findings.findings.some(f => f.severity === 'high')).toBe(true);
+    expect(findings.findings.some(f => f.rule_id === 'rule/f1' && f.path === 'src/a.ts' && f.start_line === 7)).toBe(true);
+    expect(findings.findings.some(f => f.cve === 'CVE-2026-1' && f.fingerprint === 'fingerprint-12345678')).toBe(true);
 
     const incidents = loadIncidents(root, 'data/incidents.json');
     expect(incidents.incidents).toHaveLength(2);
@@ -158,12 +162,21 @@ describe('collector and util edges', () => {
       reviewMode: 'fail',
       failOnWarn: false,
     }).decision;
-    const written = writeReportArtifacts(root, decision);
+    const written = writeReportArtifacts(root, decision, buildReleaseRiskReport({
+      target_ref: 'a',
+      base_ref: null,
+      environment: 'staging',
+      findings: [{ id: 'baseline-finding', severity: 'high', title: 'known' }],
+    }));
     expect(written.markdownPath).toContain('release-oracle-report.md');
     expect(written.jsonPath).toContain('release-oracle-report.json');
+    expect(JSON.parse(readFileSync(written.jsonPath, 'utf8')).findings[0].id).toBe('baseline-finding');
     expect(sanitizeText('token ghp_abcdefghijklmnopqrstuvwxyz12')).toContain('[REDACTED]');
+    expect(sanitizeText('https://jev.example/evaluate?api_key=secret-value')).toContain('[REDACTED]');
     expect(safeError(new Error('boom'))).toContain('boom');
     expect(resolveInsideWorkspace(root, '../escape')).toBeNull();
     expect(parseJsonOrYaml('name: demo\nvalue: 1')).toEqual({ name: 'demo', value: 1 });
+    expect(loadMetrics(root, 'missing-metrics.json').errors[0]?.source).toBe('metrics');
+    expect(loadMetrics(root, undefined, '{not-json').errors[0]?.source).toBe('metrics');
   });
 });

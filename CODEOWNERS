@@ -1,0 +1,5 @@
+# Protect Action metadata, policy code, and release-gate examples.
+* @JevForge/maintainers
+/action.yml @JevForge/maintainers
+/dist/ @JevForge/maintainers
+/examples/ @JevForge/maintainers

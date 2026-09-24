@@ -9,12 +9,12 @@ export function createTypesafeNativeProvider(options: JevProviderOptions): JevPr
   return {
     id: 'typesafe-native',
     async evaluateRelease(state: ReleaseEvaluationState) {
-      if (!options.apiKey) return unavailable('TYPESAFE_API_KEY is required for typesafe-native');
+      if (!options.apiKey) return unavailable('TYPESAFE_API_KEY is required for typesafe-native', 'secret_missing');
       if (!options.model) {
-        return unavailable('jev_model is required for typesafe-native (pin a catalog model id)');
+        return unavailable('jev_model is required for typesafe-native (pin a catalog model id)', 'configuration');
       }
       if (!endpoint.startsWith('https://')) {
-        return unavailable('typesafe-native endpoint must be HTTPS');
+        return unavailable('typesafe-native endpoint must be HTTPS', 'configuration');
       }
       return postEvaluate({
         endpoint,

@@ -1,7 +1,7 @@
 # Reference defaults for JEV Release Oracle.
 #
 # This file documents recommended defaults. Workflow Action inputs are the
-# supported configuration path today (this Action does not load .jev/config.yml).
+# supported configuration path. Explicit workflow inputs still win.
 environment: production
 min_confidence: 0.75
 low_confidence_policy: fail

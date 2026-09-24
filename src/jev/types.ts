@@ -20,6 +20,19 @@ export interface ReleaseEvaluationState {
   note: string;
 }
 
+export const PROVIDER_ERROR_CODES = [
+  'secret_missing',
+  'configuration',
+  'unauthorized',
+  'rate_limited',
+  'timeout',
+  'http_error',
+  'network_error',
+  'schema_rejected',
+  'provider_error',
+] as const;
+export type ProviderErrorCode = (typeof PROVIDER_ERROR_CODES)[number];
+
 export type JevCallResult =
   | {
       status: 'evaluated';
@@ -28,8 +41,8 @@ export type JevCallResult =
       explanation: string;
       abstain: boolean;
     }
-  | { status: 'unavailable'; message: string }
-  | { status: 'schema_rejected'; message: string };
+  | { status: 'unavailable'; message: string; error_code?: Exclude<ProviderErrorCode, 'schema_rejected'> }
+  | { status: 'schema_rejected'; message: string; error_code?: 'schema_rejected' };
 
 export interface JevProvider {
   readonly id: JevProviderId;

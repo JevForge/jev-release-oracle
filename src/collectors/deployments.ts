@@ -31,17 +31,27 @@ export async function fetchDeployments(input: {
   try {
     const deployments = await input.client.listDeployments(input.owner, input.repo, input.environment);
     const summary = emptyDeployments();
+    const errors: SourceError[] = [];
     for (const deployment of deployments.slice(0, 20)) {
-      const statuses = await input.client.getStatuses(input.owner, input.repo, deployment.id);
+      summary.total += 1;
+      let statuses: Array<{ state?: string }>;
+      try {
+        statuses = await input.client.getStatuses(input.owner, input.repo, deployment.id);
+      } catch (error) {
+        errors.push({
+          source: 'github-deployments',
+          message: sanitizeText(error instanceof Error ? error.message : String(error), 400),
+        });
+        continue;
+      }
       const latest = statuses[0];
       const state = mapState(latest?.state);
-      summary.total += 1;
       if (state === 'success') summary.success += 1;
       else if (state === 'pending') summary.pending += 1;
       else if (state === 'failure' || state === 'error') summary.failure += 1;
       summary.latest_state = state;
     }
-    return { deployments: summary, errors: [] };
+    return { deployments: summary, errors };
   } catch (error) {
     return {
       deployments: emptyDeployments(),
