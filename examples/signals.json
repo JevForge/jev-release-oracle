@@ -1,0 +1,37 @@
+{
+  "commits": [
+    {
+      "sha": "abc1234",
+      "message": "feat: add checkout retry",
+      "author": "dev",
+      "breaking": false
+    }
+  ],
+  "prs": [
+    {
+      "number": 42,
+      "title": "Add checkout retry",
+      "labels": ["ready"],
+      "draft": false
+    }
+  ],
+  "checks": {
+    "total": 3,
+    "success": 3,
+    "failure": 0,
+    "pending": 0,
+    "required_failed": 0,
+    "conclusions": ["success", "success", "success"]
+  },
+  "findings": [
+    {
+      "id": "GHSA-demo",
+      "severity": "medium",
+      "title": "Prototype pollution in demo-lib",
+      "package": "demo-lib"
+    }
+  ],
+  "incidents": [],
+  "breaking_change": false,
+  "tests_failed": 0
+}

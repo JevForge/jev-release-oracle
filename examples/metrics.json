@@ -1,0 +1,18 @@
+{
+  "metrics": [
+    {
+      "name": "error_rate",
+      "value": 0.4,
+      "threshold": 1.0,
+      "breached": false,
+      "unit": "percent"
+    },
+    {
+      "name": "p99_latency_ms",
+      "value": 220,
+      "threshold": 500,
+      "breached": false,
+      "unit": "ms"
+    }
+  ]
+}

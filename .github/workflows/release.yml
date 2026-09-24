@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver without the v prefix (example 0.1.1)
+        required: true
+      move_major_tag:
+        description: Force-update the floating major tag (v0, v1, …)
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    uses: JevForge/jev-release-forge/.github/workflows/action-release.yml@v1
+    with:
+      product-name: JEV Release Oracle
+      version: ${{ inputs.version }}
+      move-major-tag: ${{ github.event_name != 'workflow_dispatch' || inputs.move_major_tag }}

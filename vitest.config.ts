@@ -1,0 +1,31 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'node',
+    include: ['tests/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/index.ts',
+        'src/jev/vercel-ai-gateway.ts',
+        'src/jev/typesafe-native.ts',
+        'src/jev/custom-compatible.ts',
+        'src/jev/http-evaluate.ts',
+        'src/jev/types.ts',
+        'src/collectors/github-compare.ts',
+        'src/collectors/checks.ts',
+        'src/collectors/deployments.ts',
+        'src/collectors/load.ts',
+        'src/github/outputs.ts',
+      ],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        statements: 80,
+        branches: 70,
+      },
+    },
+  },
+});

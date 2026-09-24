@@ -1,0 +1,10 @@
+# Shared defaults for JEV Release Oracle (workflow inputs win when set).
+environment: production
+min_confidence: 0.75
+low_confidence_policy: fail
+review_mode: fail
+fail_on_warn: false
+source_error_policy: fail
+jev_provider: vercel-ai-gateway
+create_check_run: true
+comment_on_github: false
