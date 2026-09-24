@@ -19,7 +19,7 @@ It does **not** publish GitHub Releases or deploy anything. Your workflow stays 
     environment: production
 ```
 
-Pin `@v0`, an exact tag such as `@v0.1.0`, or a commit SHA.
+Pin `@v0`, an exact tag such as `@v0.1.1`, or a commit SHA.
 
 ## Features
 
@@ -378,7 +378,7 @@ See [SECURITY.md](SECURITY.md).
 
 ```yaml
 uses: JevForge/jev-release-oracle@v0      # floating major
-uses: JevForge/jev-release-oracle@v0.1.0 # exact release
+uses: JevForge/jev-release-oracle@v0.1.1 # exact release
 ```
 
 Prefer an exact tag or commit SHA for production workflows.

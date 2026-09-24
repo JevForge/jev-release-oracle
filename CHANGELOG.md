@@ -13,7 +13,7 @@ All notable changes to this project are documented in this file.
 * Optional PR comment, Check Run, report artifacts, and reviewer requests
 * Effects allowlisted only — never publish releases or deploy
 
-## [Unreleased]
+## [0.1.1] - 2026-09-24
 
 ### Changed
 
@@ -23,3 +23,5 @@ All notable changes to this project are documented in this file.
 * Security Sentinel and Cloud Cost Guardian outputs can be passed directly to the final gate.
 * Provider diagnostics classify missing secrets, authorization, rate limits, timeouts, HTTP/network failures, and schema rejection.
 * SARIF findings preserve rule, CVE, fingerprint, path, and line metadata; Check Runs update idempotently on reruns.
+
+## [Unreleased]
